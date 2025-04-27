@@ -77,7 +77,7 @@ def plot_3D_entropy_bias(test_results,test='Entropy Bias'):
 
     fig.show()
         
-def plot_predictability(aggregation_levels, predictability):
+def plot_predictability(aggregation_levels, predictability, x_label='Aggregation Level'):
     fig = go.Figure()
 
     fig.add_trace(go.Scatter(
@@ -90,9 +90,35 @@ def plot_predictability(aggregation_levels, predictability):
 
     fig.update_layout(
         title="Predictability by Aggregation Level",
-        xaxis_title="Aggregation Level",
+        xaxis_title=x_label,
         yaxis_title="Predictability",
         height=700,
         width=900
     )
+    fig.show()
+
+def plot_all_models(x_data, 
+                         y_data, 
+                         x_label='Aggregation Level', 
+                         y_label='Fraction of Predictable Intervals', 
+                         title='Fraction of predictable simulated intervals'):
+    fig = go.Figure()
+
+    for i, (model,y) in enumerate(y_data.items()):
+        fig.add_trace(go.Scatter(
+            x=x_data,
+            y=y,
+            mode='lines+markers',
+            name=model,
+            line=dict(width=2)
+        ))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        height=700,
+        width=900
+    )
+
     fig.show()

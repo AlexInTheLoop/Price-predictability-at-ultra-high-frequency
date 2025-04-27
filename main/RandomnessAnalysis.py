@@ -9,16 +9,15 @@ from scipy.stats import chi2
 from utils.VisualizationTools import plot_block_frequencies
 
 class RandomnessAnalysis:
-    def __init__(self, blocks_df, s, k):
+    def __init__(self, blocks_df, s):
         self.blocks_df = blocks_df
         self.s = s
-        self.k = k
         self.n_blocks = len(blocks_df)
+        self.k = self.blocks_df.shape[1] 
 
     def compute_blocks_frequencies(self):
         symbols = list(range(self.s))
-        k = self.blocks_df.shape[1] 
-        all_combinations = list(itertools.product(symbols, repeat=k)) 
+        all_combinations = list(itertools.product(symbols, repeat=self.k)) 
 
         observed_blocks = [tuple(row) for row in self.blocks_df.values]
 
