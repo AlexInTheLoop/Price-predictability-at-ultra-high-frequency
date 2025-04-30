@@ -84,7 +84,7 @@ class DataGenerator:
         if plots[0]:
             plot_predictability(list(range(1,max_aggregation_level+1)),self.freq_pred_agg['λ-model'])
         if plots[1]:
-            plot_predictability(list(range(1,max_time_lag+1)),self.freq_pred_timelag['λ-model'])
+            plot_predictability(list(range(1,max_time_lag+1)),self.freq_pred_timelag['λ-model'],x_label='time lag')
     
     def OD_model(self,
                  max_aggregation_level=50,
@@ -233,7 +233,7 @@ class DataGenerator:
         if plots[0]:
             plot_predictability(list(range(1, max_aggregation_level+1)), self.freq_pred_agg['OD-model'])
         if plots[1]:
-            plot_predictability(list(range(1, max_time_lag+1)), self.freq_pred_timelag['OD-model'])
+            plot_predictability(list(range(1, max_time_lag+1)), self.freq_pred_timelag['OD-model'],x_label='time lag')
 
     @staticmethod
     def _roundbyticksize(x,delta):
@@ -310,7 +310,7 @@ class DataGenerator:
         if plots[0]:
             plot_predictability(list(range(1, max_aggregation_level+1)), self.freq_pred_agg['TS-model'])
         if plots[1]:
-            plot_predictability(list(range(1, max_time_lag+1)), self.freq_pred_timelag['TS-model'])
+            plot_predictability(list(range(1, max_time_lag+1)), self.freq_pred_timelag['TS-model'],x_label='time lag')
 
     @staticmethod
     def _G0_function(l,l0=20,gamma0=2.8*10**(-3),beta=0.42):
@@ -318,9 +318,10 @@ class DataGenerator:
     
     @staticmethod
     def _build_blocks_by_timelag(prices, time_lag):
-        returns = np.log(prices[1:] / prices[:-1])
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.log(np.divide(prices[1:], prices[:-1], where=prices[:-1] != 0))
+            returns[np.isnan(returns)] = 0
         symbols = (returns > 0).astype(int)
-        n = len(symbols)
         blocks = np.stack([symbols[:-time_lag], symbols[time_lag:]], axis=1)
         return blocks
 
@@ -329,9 +330,15 @@ class DataGenerator:
         if what == 'aggregation level':
             all_present = all(item in self.freq_pred_agg for item in models)
             if not(all_present):
-                self.lambda_model(max_aggregation_level=max_aggregation_level,max_time_lag=max_time_lag)
-                self.OD_model(max_aggregation_level=max_aggregation_level,max_time_lag=max_time_lag)
-                self.TS_model(max_aggregation_level=max_aggregation_level,max_time_lag=max_time_lag)
+                self.lambda_model(max_aggregation_level=max_aggregation_level,
+                                  max_time_lag=max_time_lag,
+                                  plots=(False,False))
+                self.OD_model(max_aggregation_level=max_aggregation_level,
+                              max_time_lag=max_time_lag,
+                              plots=(False,False))
+                self.TS_model(max_aggregation_level=max_aggregation_level,
+                              max_time_lag=max_time_lag,
+                              plots=(False,False))
             y = {'λ-model': self.freq_pred_agg['λ-model'],
                  'OD-model': self.freq_pred_agg['OD-model'],
                  'TS-model': self.freq_pred_agg['TS-model']}
@@ -339,9 +346,15 @@ class DataGenerator:
         elif what == 'time lag':
             all_present = all(item in self.freq_pred_timelag for item in models)
             if not(all_present):
-                self.lambda_model(max_aggregation_level=max_aggregation_level,max_time_lag=max_time_lag)
-                self.OD_model(max_aggregation_level=max_aggregation_level,max_time_lag=max_time_lag)
-                self.TS_model(max_aggregation_level=max_aggregation_level,max_time_lag=max_time_lag)
+                self.lambda_model(max_aggregation_level=max_aggregation_level,
+                                  max_time_lag=max_time_lag,
+                                  plots=(False,False))
+                self.OD_model(max_aggregation_level=max_aggregation_level,
+                              max_time_lag=max_time_lag,
+                              plots=(False,False))
+                self.TS_model(max_aggregation_level=max_aggregation_level,
+                              max_time_lag=max_time_lag,
+                              plots=(False,False))
             y = {'λ-model': self.freq_pred_timelag['λ-model'],
                  'OD-model': self.freq_pred_timelag['OD-model'],
                  'TS-model': self.freq_pred_timelag['TS-model']}
@@ -353,6 +366,9 @@ class DataGenerator:
                         
 if __name__ == "__main__":
     data_gen = DataGenerator()
-    #data_gen.lambda_model(test='KL Divergence',overlapping=True,max_aggration_level=5,n_days=10)
-    #data_gen.OD_model(test='KL Divergence',overlapping=True,max_aggration_level=5,n_days=2)
-    data_gen.TS_model(test='KL Divergence',overlapping=True,max_aggregation_level=10,n_days=10)
+    #data_gen.lambda_model(test='KL Divergence',overlapping=True,max_aggregation_level=5,n_days=2,plots=(False,True))
+    #data_gen.OD_model(test='KL Divergence',overlapping=True,max_aggregation_level=5,n_days=2,plots=(False,True))
+    #data_gen.TS_model(test='KL Divergence',overlapping=True,max_aggregation_level=10,n_days=2,plots=(False,True))
+    data_gen.plot_all(what='aggregation level')
+    data_gen.plot_all(what='time lag')
+    

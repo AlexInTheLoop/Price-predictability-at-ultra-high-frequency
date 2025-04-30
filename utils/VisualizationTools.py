@@ -83,13 +83,13 @@ def plot_predictability(aggregation_levels, predictability, x_label='Aggregation
     fig.add_trace(go.Scatter(
         x=aggregation_levels,
         y=predictability,
-        mode='lines+markers',
+        mode='lines',
         name='Predictability',
         line=dict(color='blue', width=2)
     ))
 
     fig.update_layout(
-        title="Predictability by Aggregation Level",
+        title=f"Predictability by {x_label}",
         xaxis_title=x_label,
         yaxis_title="Predictability",
         height=700,
@@ -108,7 +108,7 @@ def plot_all_models(x_data,
         fig.add_trace(go.Scatter(
             x=x_data,
             y=y,
-            mode='lines+markers',
+            mode='lines',
             name=model,
             line=dict(width=2)
         ))
