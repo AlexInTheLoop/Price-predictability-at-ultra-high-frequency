@@ -21,11 +21,12 @@ class MultiTester:
                            max_block_size=10, 
                            step=1, 
                            aggregation_level=1,
-                           year=2023,
+                           year=2024,
                            month=11):
+        
         self.results_by_block_size = {
             'Block size': [],
-            'Bias': [],
+            'Test statistic': [],
             'Quantile 99': [],
             'Quantile 95': [],
             'Quantile 90': [],
@@ -37,17 +38,17 @@ class MultiTester:
             blocks = data_manager.block_constructor(block_size=i, overlapping=self.overlapping)
             blocks = blocks[self.asset]
 
-            analysis = RandomnessAnalysis(blocks_df=blocks, s=self.s, k=i)
+            analysis = RandomnessAnalysis(blocks_df=blocks, s=self.s)
             _ = analysis.compute_blocks_frequencies()
             if test == 'Entropy Bias':
-                test_result, stat = analysis.entropy_bias_test(), 'Bias'
+                test_result = analysis.entropy_bias_test()
             elif test == 'KL Divergence':
-                test_result, stat = analysis.KL_divergence_test(), 'Divergence'
+                test_result = analysis.KL_divergence_test()
             else:
                 raise ValueError("Invalid test type. Use 'Entropy Bias' or 'KL Divergence'.")
 
             self.results_by_block_size['Block size'].append(i)
-            self.results_by_block_size[stat].append(test_result.iloc[0, 0])
+            self.results_by_block_size['Test statistic'].append(test_result.iloc[0, 0])
             self.results_by_block_size['Quantile 90'].append(test_result.iloc[1, 0])
             self.results_by_block_size['Quantile 95'].append(test_result.iloc[2, 0])
             self.results_by_block_size['Quantile 99'].append(test_result.iloc[3, 0])
@@ -57,10 +58,15 @@ class MultiTester:
         df.set_index('Block size', inplace=True)
         return df
     
-    def test_by_aggregation_level(self,test='Entropy Bias',max_aggregation_level=50,step=1,block_size=2):
+    def test_by_aggregation_level(self,test='Entropy Bias',
+                                  max_aggregation_level=50,
+                                  step=1,
+                                  block_size=2,
+                                  year=2024,
+                                  month=11):
         self.results_by_aggregation_level = {
             'Aggregation level': [],
-            'Bias': [],
+            'Test statistic': [],
             'Quantile 90': [],
             'Quantile 95': [],
             'Quantile 99': [],
@@ -68,21 +74,21 @@ class MultiTester:
         }
 
         for i in range(1, max_aggregation_level + 1, step):
-            data_manager = DataManager([self.asset], self.symbols, aggregation_level=i)
+            data_manager = DataManager([self.asset], self.symbols, aggregation_level=i, year=year, month=month)
             blocks = data_manager.block_constructor(block_size=block_size, overlapping=self.overlapping)
             blocks = blocks[self.asset]
 
-            analysis = RandomnessAnalysis(blocks_df=blocks, s=self.s, k=2)
+            analysis = RandomnessAnalysis(blocks_df=blocks, s=self.s)
             _ = analysis.compute_blocks_frequencies()
             if test == 'Entropy Bias':
-                test_result, stat = analysis.entropy_bias_test(), 'Bias'
+                test_result = analysis.entropy_bias_test()
             elif test == 'KL Divergence':
-                test_result, stat = analysis.KL_divergence_test(), 'Divergence'
+                test_result = analysis.KL_divergence_test()
             else:
                 raise ValueError("Invalid test type. Use 'Entropy Bias' or 'KL Divergence'.")
 
             self.results_by_aggregation_level['Aggregation level'].append(i)
-            self.results_by_aggregation_level[stat].append(test_result.iloc[0, 0])
+            self.results_by_aggregation_level['Test statistic'].append(test_result.iloc[0, 0])
             self.results_by_aggregation_level['Quantile 90'].append(test_result.iloc[1, 0])
             self.results_by_aggregation_level['Quantile 95'].append(test_result.iloc[2, 0])
             self.results_by_aggregation_level['Quantile 99'].append(test_result.iloc[3, 0])
@@ -92,21 +98,30 @@ class MultiTester:
         df.set_index('Aggregation level', inplace=True)
         return df
     
-    def plot_3D_test_result(self,asset='BTCUSDT', test = 'Entropy Bias', max_block_size=10,max_aggregation_level=50,step_block=1,step_aggregation=1):
-        result_3D = np.zeros((50, 10, 2))
+    def plot_3D_test_result(self,asset='BTCUSDT',
+                            test = 'Entropy Bias', 
+                            max_block_size=10,
+                            max_aggregation_level=50,
+                            step_block=1,
+                            step_aggregation=1,
+                            year=2024,
+                            month=11):
+        result_3D = np.zeros((max_aggregation_level,
+                              max_block_size, 
+                              2))
 
         for i in range(1, max_aggregation_level + 1, step_aggregation):
             for j in range(1, max_block_size + 1, step_block):
-                data_manager = DataManager([asset], self.symbols, aggregation_level=i)
+                data_manager = DataManager([asset], self.symbols, aggregation_level=i, year=year, month=month)
                 blocks = data_manager.block_constructor(block_size=j, overlapping=False)
                 blocks_btc = blocks[asset]
-                analysis = RandomnessAnalysis(blocks_df=blocks_btc, s=2, k=j)
+                analysis = RandomnessAnalysis(blocks_df=blocks_btc, s=2)
                 _ = analysis.compute_blocks_frequencies()
 
                 if test == 'Entropy Bias':
-                    test_result, stat = analysis.entropy_bias_test(), 'Bias'
+                    test_result = analysis.entropy_bias_test()
                 elif test == 'KL Divergence':
-                    test_result, stat = analysis.KL_divergence_test(), 'Divergence'
+                    test_result = analysis.KL_divergence_test()
                 else:
                     raise ValueError("Invalid test type. Use 'Entropy Bias' or 'KL Divergence'.")
 

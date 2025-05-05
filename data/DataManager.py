@@ -29,17 +29,22 @@ class DataManager:
                  year,
                  month,
                  aggregation_level = 1, 
-                 exclude_zero=True):
+                 exclude_zero=True,
+                 aggregate_by_time=False):
         self.assets_pairs = asset_pairs
         self.symbols = symbols
         self.when = None if year is None or month is None else f"{year}-{month}"
         self.exclude_zero = exclude_zero
         self.aggregation_level = aggregation_level
+        self.aggregate_by_time = aggregate_by_time
         self.datasets = {}
         self.__post_init__()
     
     def __post_init__(self):
         self.load_data()
+        self.checks = []
+        for pair in self.assets_pairs:
+            self.checks.append(self.exist(pair))
         self.preprocess_data()
         self.save_data()
 
@@ -55,15 +60,36 @@ class DataManager:
                                  names=["trade_id", "price", "volume", "quote_qty","timestamp","is_buyer_maker","is_best_match"])
             df["timestamp"] = pd.to_numeric(df["timestamp"])
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit='ms')
-            df.set_index("timestamp", inplace=True)
+            
+            #df['duration'] = df['timestamp'].diff().fillna(0)
+            df['log price'] = np.log(df['price'])
             df.sort_index(inplace=True)
+            if self.aggregate_by_time:
+                df = df.groupby('timestamp').agg({
+                    'timestamp':'first',
+                    'volume':'sum',
+                    'log price':'last'#,
+                    #'duration':'sum'
+                }).reset_index(drop=True)
+            df.set_index("timestamp", inplace=True)
             self.datasets[pair] = df
 
     def preprocess_data(self):
         for i, (pair,dataset) in enumerate(self.datasets.items()):
-            dataset = dataset.iloc[::self.aggregation_level].copy()
-
-            dataset["returns"] = np.log(dataset["price"] / dataset["price"].shift(1))
+            if self.checks[i]:
+                continue
+            dataset = dataset.copy()
+            dataset.reset_index(inplace=True)
+            dataset['key'] = np.floor(np.arange(len(dataset)) / self.aggregation_level).astype(int)
+            dataset = dataset.groupby('key').agg({
+                'timestamp': 'last',
+                'log price': 'mean',
+                'volume': 'sum'#,
+                #'duration': 'sum'
+            }).rename(columns={'log price':'price'}).reset_index(drop=True)
+            #.rename(columns={'log price':'mean','duration':'duration'}).reset_index(drop=True)
+            dataset["returns"] = dataset["price"].diff().fillna(0)
+            dataset.set_index("timestamp", inplace=True)
             dataset.dropna(inplace=True)
 
             if self.exclude_zero:
@@ -94,24 +120,60 @@ class DataManager:
                                         bins=flat_bins,
                                         labels=labels,
                                         include_lowest=True
-                                    )
+                                    ) 
             
             dataset["symbol"] = dataset["symbol"].astype(int)
 
             self.datasets[pair] = dataset
 
     def save_data(self):
-        for pair,dataset in self.datasets.items():
+        for i, (pair,dataset) in enumerate(self.datasets.items()):
+            if self.checks[i]:
+                continue
             filename = os.path.join(PREPROCCESSED_DATA_FOLDER, f"{pair.upper()}_processed" + 
-                                    f"_B{len(self.symbols.keys())}" + 
-                                    f"_A{self.aggregation_level}.csv")
+                                    (f"_{self.when}" if self.when is not None else "_REAL_TIME") +
+                                    f"_S={len(self.symbols.keys())}" + 
+                                    f"_A={self.aggregation_level}.csv")
             dataset.to_csv(filename, index=True)
+    
+    def exist(self, pair, block_size=None):
+        exist = False
+
+        if block_size is None:
+            filename = os.path.join(
+                PREPROCCESSED_DATA_FOLDER,
+                f"{pair.upper()}_processed" +
+                (f"_{self.when}" if self.when is not None else "_REAL_TIME") +
+                f"_S={len(self.symbols.keys())}" +
+                f"_A={self.aggregation_level}.csv"
+            )
+            if os.path.exists(filename):
+                self.datasets[pair] = pd.read_csv(filename, index_col="timestamp", parse_dates=["timestamp"])
+                exist = True
+        else:
+            filename = (
+                f"{BLOCKS_FOLDER}/{pair.upper()}"
+                + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
+                + f"_size={block_size}.csv"
+            )
+
+            if os.path.exists(filename):
+                exist = True
+        return exist
 
     def block_constructor(self, pairs=None, block_size=None, overlapping=False):
         if pairs is None:
             pairs = self.assets_pairs
         self.blocks = {}
         for pair in pairs:
+            filename = (
+                f"{BLOCKS_FOLDER}/{pair.upper()}"
+                + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
+                + f"_size={block_size}.csv"
+            )
+            if self.exist(pair, block_size):
+                self.blocks[pair] = pd.read_csv(filename, header=None)
+                continue
             n = len(self.datasets[pair])
             s = len(self.symbols.keys())
             symbols = self.datasets[pair]['symbol'].values
@@ -123,8 +185,6 @@ class DataManager:
             else:
                 self.blocks[pair] = non_overlapping_blocks(symbols, block_size)
             
-            filename = f"{BLOCKS_FOLDER}/{pair.upper()}_blocks_{block_size}.csv"
-
             self.blocks[pair] = pd.DataFrame(self.blocks[pair])
             self.blocks[pair].to_csv(filename, index=False, header=False)
 
@@ -141,5 +201,5 @@ if __name__ == "__main__":
                 1: [(0, np.inf), (False, False)]
             }
 
-    data_manager = DataManager(asset_pairs, symbols)
+    data_manager = DataManager(asset_pairs, symbols, 2024, 11)
     blocks = data_manager.block_constructor(block_size=3, overlapping=False)

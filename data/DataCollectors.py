@@ -111,20 +111,20 @@ class HistoricalDataCollector:
 
     def _download_zip(self, pair, zip_filename, zip_filepath):
         url = f"{self.BASE_URL}/{pair}/{zip_filename}"
-        print(f"Dowloading {zip_filename} from {url} ...")
+        print(f"[SYSTEM] Dowloading {zip_filename} from {url} ...")
         response = requests.get(url)
         if response.status_code == 200:
             with open(zip_filepath, 'wb') as f:
                 f.write(response.content)
-            print(f"File dowloaded: {zip_filename}")
+            print(f"[SYSTEM] File dowloaded: {zip_filename}")
         else:
             raise Exception(f"Error for the pair {pair} ({response.status_code})")
 
     def _extract_zip(self, zip_filepath, output_dir):
-        print(f"Extraction of {zip_filepath} ...")
+        print(f"[SYSTEM] Extraction of {zip_filepath} ...")
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
             zip_ref.extractall(output_dir)
-        print(f"Extraction finished.")
+        print(f"[SYSTEM] Extraction finished.")
 
     def collect(self):
         for pair in self.crypto_pairs:
@@ -132,21 +132,21 @@ class HistoricalDataCollector:
             zip_filename, csv_filename, zip_filepath, csv_output_path = self._build_file_paths(pair)
 
             if os.path.exists(csv_output_path):
-                print(f"Data already available for {pair} ({csv_filename})")
+                print(f"[SYSTEM] Data already available for {pair} ({csv_filename})")
                 continue
 
             try:
                 if not os.path.exists(zip_filepath):
                     self._download_zip(pair, zip_filename, zip_filepath)
                 else:
-                    print(f"ZIP file already exists: {zip_filename}")
+                    print(f"[SYSTEM] ZIP file already exists: {zip_filename}")
 
                 self._extract_zip(zip_filepath, RAW_DATA_FOLDER)
 
             finally:
                 if os.path.exists(zip_filepath):
                     os.remove(zip_filepath)
-                    print(f"ZIP file deleted: {zip_filename}")
+                    print(f"[SYSTEM] ZIP file deleted: {zip_filename}")
 
 
 if __name__ == "__main__":

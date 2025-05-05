@@ -6,7 +6,6 @@ import math
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from scipy.stats import chi2
-from utils.VisualizationTools import plot_block_frequencies
 
 class RandomnessAnalysis:
     def __init__(self, blocks_df, s):
