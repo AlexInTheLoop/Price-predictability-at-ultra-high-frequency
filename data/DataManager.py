@@ -160,6 +160,7 @@ class DataManager:
             filename = (
                 f"{BLOCKS_FOLDER}/{pair.upper()}"
                 + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
+                + f"_A={self.aggregation_level}"
                 + f"_size={block_size}.csv"
             )
 
@@ -175,6 +176,7 @@ class DataManager:
             filename = (
                 f"{BLOCKS_FOLDER}/{pair.upper()}"
                 + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
+                + f"_A={self.aggregation_level}"
                 + f"_size={block_size}.csv"
             )
             if self.exist(pair, block_size):
