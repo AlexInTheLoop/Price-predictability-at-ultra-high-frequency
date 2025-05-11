@@ -93,42 +93,52 @@ class RealTimeDataCollector:
 
 
 class HistoricalDataCollector:
-    BASE_URL = "https://data.binance.vision/data/spot/monthly/trades"
+    BASE_URL = "https://data.binance.vision/data/spot"
 
-    def __init__(self, pairs, month, year):
+    def __init__(self, pairs, year, month, day=None):
         self.crypto_pairs = pairs
-        self.month = f"{int(month):02d}"
         self.year = str(year)
+        self.month = f"{int(month):02d}"
+        self.day = f"{int(day):02d}" if day else None
 
         os.makedirs(RAW_DATA_FOLDER, exist_ok=True)
 
     def _build_file_paths(self, pair):
-        zip_filename = f"{pair}-trades-{self.year}-{self.month}.zip"
-        csv_filename = f"{pair}-trades-{self.year}-{self.month}.csv"
+        if self.day:
+            zip_filename = f"{pair}-trades-{self.year}-{self.month}-{self.day}.zip"
+            csv_filename = f"{pair}-trades-{self.year}-{self.month}-{self.day}.csv"
+        else:
+            zip_filename = f"{pair}-trades-{self.year}-{self.month}.zip"
+            csv_filename = f"{pair}-trades-{self.year}-{self.month}.csv"
+
         zip_filepath = os.path.join(".", zip_filename)
         csv_output_path = os.path.join(RAW_DATA_FOLDER, csv_filename)
         return zip_filename, csv_filename, zip_filepath, csv_output_path
 
     def _download_zip(self, pair, zip_filename, zip_filepath):
-        url = f"{self.BASE_URL}/{pair}/{zip_filename}"
-        print(f"[SYSTEM] Dowloading {zip_filename} from {url} ...")
+        if self.day:
+            url = f"{self.BASE_URL}/daily/trades/{pair}/{zip_filename}"
+        else:
+            url = f"{self.BASE_URL}/monthly/trades/{pair}/{zip_filename}"
+
+        print(f"[SYSTEM] Downloading {zip_filename} from {url} ...")
         response = requests.get(url)
         if response.status_code == 200:
             with open(zip_filepath, 'wb') as f:
                 f.write(response.content)
-            print(f"[SYSTEM] File dowloaded: {zip_filename}")
+            print(f"[SYSTEM] File downloaded: {zip_filename}")
         else:
             raise Exception(f"Error for the pair {pair} ({response.status_code})")
 
     def _extract_zip(self, zip_filepath, output_dir):
-        print(f"[SYSTEM] Extraction of {zip_filepath} ...")
+        print(f"[SYSTEM] Extracting {zip_filepath} ...")
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
             zip_ref.extractall(output_dir)
         print(f"[SYSTEM] Extraction finished.")
 
     def collect(self):
         for pair in self.crypto_pairs:
-            print(f"{pair}")
+            print(f"[SYSTEM] Processing {pair}...")
             zip_filename, csv_filename, zip_filepath, csv_output_path = self._build_file_paths(pair)
 
             if os.path.exists(csv_output_path):

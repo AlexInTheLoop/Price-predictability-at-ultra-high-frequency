@@ -28,12 +28,18 @@ class DataManager:
                  symbols, 
                  year,
                  month,
+                 day=None,
                  aggregation_level = 1, 
                  exclude_zero=True,
                  aggregate_by_time=False):
         self.assets_pairs = asset_pairs
         self.symbols = symbols
-        self.when = None if year is None or month is None else f"{year}-{month}"
+        if year is None or month is None:
+            self.when = None
+        elif day is None:
+            self.when = f"{year}-" + f"{int(month):02d}"
+        else:
+            self.when = f"{year}-" + f"{int(month):02d}-" + f"{int(day):02d}"
         self.exclude_zero = exclude_zero
         self.aggregation_level = aggregation_level
         self.aggregate_by_time = aggregate_by_time
