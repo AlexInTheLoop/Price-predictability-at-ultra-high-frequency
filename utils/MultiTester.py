@@ -22,7 +22,8 @@ class MultiTester:
                            step=1, 
                            aggregation_level=1,
                            year=2024,
-                           month=11):
+                           month=11,
+                           day=None):
         
         self.results_by_block_size = {
             'Block size': [],
@@ -32,7 +33,7 @@ class MultiTester:
             'Quantile 90': [],
             'Mean': []
         }
-        data_manager = DataManager([self.asset], self.symbols, year, month, aggregation_level)
+        data_manager = DataManager([self.asset], self.symbols, year, month, day, aggregation_level)
 
         for i in range(1, max_block_size + 1, step):
             blocks = data_manager.block_constructor(block_size=i, overlapping=self.overlapping)
@@ -63,7 +64,8 @@ class MultiTester:
                                   step=1,
                                   block_size=2,
                                   year=2024,
-                                  month=11):
+                                  month=11,
+                                  day=None):
         self.results_by_aggregation_level = {
             'Aggregation level': [],
             'Test statistic': [],
@@ -74,7 +76,7 @@ class MultiTester:
         }
 
         for i in range(1, max_aggregation_level + 1, step):
-            data_manager = DataManager([self.asset], self.symbols, aggregation_level=i, year=year, month=month)
+            data_manager = DataManager([self.asset], self.symbols, aggregation_level=i, year=year, month=month, day=day)
             blocks = data_manager.block_constructor(block_size=block_size, overlapping=self.overlapping)
             blocks = blocks[self.asset]
 
@@ -105,14 +107,15 @@ class MultiTester:
                             step_block=1,
                             step_aggregation=1,
                             year=2024,
-                            month=11):
+                            month=11,
+                            day=None):
         result_3D = np.zeros((max_aggregation_level,
                               max_block_size, 
                               2))
 
         for i in range(1, max_aggregation_level + 1, step_aggregation):
             for j in range(1, max_block_size + 1, step_block):
-                data_manager = DataManager([asset], self.symbols, aggregation_level=i, year=year, month=month)
+                data_manager = DataManager([asset], self.symbols, aggregation_level=i, year=year, month=month, day=day)
                 blocks = data_manager.block_constructor(block_size=j, overlapping=False)
                 blocks_btc = blocks[asset]
                 analysis = RandomnessAnalysis(blocks_df=blocks_btc, s=2)
