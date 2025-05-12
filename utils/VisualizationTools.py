@@ -1,6 +1,8 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
+import calendar
+import plotly.express as px
 
 
 
@@ -121,4 +123,109 @@ def plot_all_models(x_data,
         width=900
     )
 
+    fig.show()
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import calendar
+import plotly.express as px
+
+def sub_plots_comp(result, pairs, year, month, day, test):
+    # Determine if we are working with days or months
+    is_daily = day is not None
+    global_title = f"Fraction of predictable {'hourly' if is_daily else 'daily'} intervals ({test})"
+    y_axis_title = "Fraction of predictable hours" if is_daily else "Fraction of predictable days"
+    x_axis_title = "Aggregation level"
+
+    # Create a subplot grid with up to 3 plots per row
+    num_pairs = len(pairs)
+    cols = 3
+    rows = -(-num_pairs // cols)  # Ceiling division
+    fig = make_subplots(
+        rows=rows,
+        cols=cols,
+        subplot_titles=pairs,
+        shared_xaxes=True,  # Share x-axis across all subplots
+        shared_yaxes=True,  # Share y-axis across all subplots
+        vertical_spacing=0.05,  # Reduce vertical spacing between subplots
+        horizontal_spacing=0.05  # Reduce horizontal spacing between subplots
+    )
+
+    # Generate colors for the legend
+    periods = day if is_daily else month
+    if is_daily:
+        legend_labels = [f"{d}/{month:02d}/{year}" for d in day]
+    else:
+        legend_labels = [calendar.month_name[m] for m in month]
+    colors = px.colors.qualitative.Plotly[:len(periods)]
+
+    # Add traces for each pair
+    for idx, pair in enumerate(pairs):
+        row = idx // cols + 1
+        col = idx % cols + 1
+
+        for period_idx, period in enumerate(periods):
+            y_values = [result[period][level][idx] for level in range(len(result[period]))]
+            x_values = list(range(1, len(y_values) + 1))
+            fig.add_trace(
+                go.Scatter(
+                    x=x_values,
+                    y=y_values,
+                    mode='lines+markers',
+                    name=legend_labels[period_idx],
+                    line=dict(color=colors[period_idx]),
+                    legendgroup=legend_labels[period_idx],  # Group traces for shared legend interaction
+                    showlegend=(idx == 0)  # Show legend only for the first subplot
+                ),
+                row=row,
+                col=col
+            )
+
+    # Update layout for global titles, axis labels, and legend
+    fig.update_layout(
+        title=dict(
+            text=global_title,
+            x=0.5,  # Center the title
+            xanchor="center",
+            font=dict(size=21)  # Increase title font size
+        ),
+        height=300 * rows,  # Adjust height dynamically based on the number of rows
+        width=1000,
+        legend_title="Periods",
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.3,  # Position the legend below the plots
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=50, b=100, l=100, r=50),  # Adjust margins for axis titles
+        annotations=[
+            dict(
+                text=x_axis_title,
+                x=0.5,
+                y=-0.15,  # Position the x-axis title between the last row and the legend
+                xref="paper",
+                yref="paper",
+                showarrow=False,
+                font=dict(size=17)  # Increase x-axis title font size
+            ),
+            dict(
+                text=y_axis_title,
+                x=-0.07,
+                y= 0.18 + (0.05 * (rows - 1)),  # Dynamically adjust the y position based on the number of rows
+                xref="paper",
+                yref="paper",
+                showarrow=False,
+                textangle=-90,
+                font=dict(size=17)  # Increase y-axis title font size
+            )
+        ]
+    )
+
+    # Remove duplicate x-axis titles
+    for i in range(1, cols + 1):
+        fig.update_xaxes(title_text=None, row=rows, col=i)
+
+    # Show the figure
     fig.show()

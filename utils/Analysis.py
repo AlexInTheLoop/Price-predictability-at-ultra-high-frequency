@@ -5,6 +5,7 @@ from data.DataCollectors import HistoricalDataCollector
 from data.DataManager import DataManager
 from utils.BlockConstructors import non_overlapping_blocks, overlapping_blocks
 from main.RandomnessAnalysis import RandomnessAnalysis
+from utils.VisualizationTools import sub_plots_comp
 import os
 from data.DataManager import PREPROCCESSED_DATA_FOLDER
 
@@ -96,17 +97,14 @@ def localization_predictable_intervals(data_manager, pair, block_size=None, wind
 
     return result
 
-def monthly_analysis(pairs,
+def intervals_analysis(pairs,
                      symbols,
                      block_size=None,
-                     max_aggregation_level=1,
+                     max_aggregation_level=50,
                      year=None,
                      month=None,
                      day=None,
                      test='Entropy Bias'):
-    # month/day
-    # aggregation_level
-    # pair
 
     if day is None:
         nb_periods = len(month)
@@ -114,19 +112,20 @@ def monthly_analysis(pairs,
     else:
         nb_periods = len(day)
         ref = day
-    
+
     result = {}
     for n in range(nb_periods):
-        result[ref[n]] = {}
+        result[ref[n]] = []
+        if day is None:
+            m = month[n]
+            d = None
+        else:
+            m = month
+            d = day[n]
+        agg_list = []
         for level in range(1, max_aggregation_level+1):
-            if day is None:
-                m = month[n]
-                d = None
-            else:
-                m = month[n]
-                d = day[n]
-            frac_pred = []
-            print(f"[SYSTEM] Processing {year}-{m} with aggregation level {level}...")
+            message = f"{year}-{m}" if day is None else f"{year}-{m}-{d}"
+            print(f"[SYSTEM] Processing " + message + f" with aggregation level {level}...")
             collector = HistoricalDataCollector(pairs, year, m, d)
             collector.collect()
             data_manager = DataManager(pairs, 
@@ -135,10 +134,12 @@ def monthly_analysis(pairs,
                                     month=m,
                                     day=d,
                                     aggregation_level=level)
-            
+            frac_pred = []
             for pair in pairs:
                 print(f"[SYSTEM] Processing {pair.upper()}...")
                 df = data_manager.datasets[pair]
+                n_ = len(df)
+                block_size = math.floor(0.5*math.log(n_,len(symbols.keys()))) if block_size is None else block_size
                 if not pd.api.types.is_datetime64_any_dtype(df.index):
                     df.index = pd.to_datetime(df.index, unit='ms')
                 if day is None:
@@ -147,7 +148,8 @@ def monthly_analysis(pairs,
                     freq = '1H'  
 
                 grouped = df.groupby(pd.Grouper(freq=freq))
-
+                nb_sub_periods = len(grouped)
+                frac_pred.append(0)
                 for interval, group in grouped:
                     if test == 'Entropy Bias':
                         blocks = pd.DataFrame(non_overlapping_blocks(group["symbol"].values, block_size))
@@ -160,18 +162,10 @@ def monthly_analysis(pairs,
                     else:
                         raise ValueError("Test not recognized. Choose between 'Entropy Bias' and 'KL Divergence'.")
                     
-                    
-            
+                    if test_result.iloc[6,0]:
+                        frac_pred[-1] += 1 / nb_sub_periods
+            agg_list.append(frac_pred)
 
-
-
-
-
-
-    if test == 'Entropy Bias':
-        blocks = data_manager.block_constructor(block_size=block_size, overlapping=False)
-    elif test == 'KL Divergence':
-        blocks = data_manager.block_constructor(block_size=block_size, overlapping=True)
-    else:
-        raise ValueError("Test not recognized. Choose between 'Entropy Bias' and 'KL Divergence'.")
+        result[ref[n]] = agg_list
     
+    sub_plots_comp(result,pairs, year, month, day, test)
