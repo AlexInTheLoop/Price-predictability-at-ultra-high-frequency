@@ -95,7 +95,7 @@ class RandomnessAnalysis:
             count_i = f_i_dot[block_i]
             count_j = f_dot_j[symbol_j]
             if count_ij > 0 and count_i > 0 and count_j > 0:
-                D += 2 * count_ij * math.log(((self.n_blocks - self.k + 1) * count_ij) / (count_i * count_j))
+                D += 2 * count_ij * math.log((self.n_blocks * count_ij) / (count_i * count_j))
 
         return D
     
