@@ -198,7 +198,6 @@ class DataManager:
 
         return self.blocks
 
-
 if __name__ == "__main__":
     asset_pairs = [
         "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT"

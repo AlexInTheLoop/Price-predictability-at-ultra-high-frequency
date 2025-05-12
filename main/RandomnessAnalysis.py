@@ -43,19 +43,23 @@ class RandomnessAnalysis:
         return self.frequencies
 
     def shannon_entropy(self):
+        if not hasattr(self, 'frequencies'):
+            self.compute_blocks_frequencies()
         H = 0.0
         for i in range(self.s**self.k):
             p = self.frequencies.iloc[i, 2]
             if p > 0:
                 H += -p * math.log(p)
         return H
-
-    def entropy_bias_test(self):
+    def entropy_bias_test(self, m=1):
         B = 2 * self.n_blocks * (self.k * math.log(self.s) - self.shannon_entropy())
         df = self.s**self.k - 1
-        quantile_90 = chi2.ppf(0.90, df)
-        quantile_95 = chi2.ppf(0.95, df)
-        quantile_99 = chi2.ppf(0.99, df)
+        alpha_90 = 1 - (1 - 0.1) ** (1 / m)
+        alpha_95 = 1 - (1 - 0.05) ** (1 / m)
+        alpha_99 = 1 - (1 - 0.01) ** (1 / m)
+        quantile_90 = chi2.ppf(1-alpha_90, df)
+        quantile_95 = chi2.ppf(1-alpha_95, df)
+        quantile_99 = chi2.ppf(1-alpha_99, df)
         hypothesis = B > quantile_99
         p_value = chi2.sf(B, df)
 
@@ -95,14 +99,18 @@ class RandomnessAnalysis:
 
         return D
     
-    def KL_divergence_test(self):
+    def KL_divergence_test(self,m=1):
 
         D = self.KL_divergence()
         df = (self.s**(self.k-1) - 1) * (self.s - 1)
+
+        alpha_90 = 1 - (1 - 0.1) ** (1 / m)
+        alpha_95 = 1 - (1 - 0.05) ** (1 / m)
+        alpha_99 = 1 - (1 - 0.01) ** (1 / m)
         
-        quantile_90 = chi2.ppf(0.90, df)
-        quantile_95 = chi2.ppf(0.95, df)
-        quantile_99 = chi2.ppf(0.99, df)
+        quantile_90 = chi2.ppf(1-alpha_90, df)
+        quantile_95 = chi2.ppf(1-alpha_95, df)
+        quantile_99 = chi2.ppf(1-alpha_99, df)
         hypothesis = D > quantile_99
         p_value = chi2.sf(D, df)
 
