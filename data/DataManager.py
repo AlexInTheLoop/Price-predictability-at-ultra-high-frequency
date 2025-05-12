@@ -4,6 +4,7 @@ import os
 import math
 import sys
 import os
+import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.BlockConstructors import non_overlapping_blocks, overlapping_blocks
 from data.DataCollectors import RAW_DATA_FOLDER
@@ -198,6 +199,95 @@ class DataManager:
 
         return self.blocks
 
+    def compute_tx_frequency_metrics(
+        self,
+        pair: str,
+        max_interval_sec: float = 1.0
+    ) -> dict:
+
+        df = self.datasets[pair]
+        ts = df.index.to_series().sort_index()
+        dt = ts.diff().dt.total_seconds().iloc[1:]
+
+        total_tx = len(ts)
+        avg_dt = dt.mean() if not dt.empty else float('nan')
+        frac_within = (dt <= max_interval_sec).sum() / len(dt) if not dt.empty else 0.0
+
+        return {
+            'aggregation_level': self.aggregation_level,
+            'total_transactions': total_tx,
+            'avg_interval_sec': avg_dt,
+            'fraction_within_1s': frac_within
+        }
+
+    def summarize_transaction_characteristics(
+        pair: str,
+        symbols: dict,
+        year: int,
+        month: int,
+        day: int = None,
+        aggregation_levels: list = [1, 5, 10, 50],
+        max_interval_sec: float = 1.0
+    ) -> pd.DataFrame:
+
+        records = []
+        for lvl in aggregation_levels:
+            dm = DataManager(
+                asset_pairs=[pair],
+                symbols=symbols,
+                year=year,
+                month=month,
+                day=day,
+                aggregation_level=lvl
+            )
+            dm.load_data()
+            dm.checks = [False for _ in dm.checks]   # <- clé pour forcer le preprocess !
+            dm.preprocess_data()
+            m = dm.compute_tx_frequency_metrics(pair, max_interval_sec)
+            records.append(m)
+
+        df = pd.DataFrame(records)
+        return df.set_index('aggregation_level')
+
+    def plot_transaction_frequency(
+        self,
+        pair: str,
+        aggregation_levels: list,
+        max_interval_sec: float = 1.0
+    ) -> None:
+ 
+        when = getattr(self, 'when', None)
+        year, month, day = None, None, None
+        if isinstance(when, str):
+            parts = when.split('-')
+            year = int(parts[0])
+            month = int(parts[1]) if len(parts) > 1 else None
+            day = int(parts[2]) if len(parts) > 2 else None
+
+        df = DataManager.summarize_transaction_characteristics(
+            pair=pair,
+            symbols=self.symbols,
+            year=year,
+            month=month,
+            day=day,
+            aggregation_levels=aggregation_levels,
+            max_interval_sec=max_interval_sec
+        )
+
+        plt.figure(figsize=(8, 4))
+        plt.plot(
+            df.index,
+            df['fraction_within_1s'],
+            marker='o',
+            linestyle='-'
+        )
+        plt.xlabel('Aggregation Level')
+        plt.ylabel(f'Fraction transactions ≤ {max_interval_sec}s')
+        plt.title(f'Transaction Frequency for {pair}')
+        plt.grid(True)
+        plt.show()
+
+
 if __name__ == "__main__":
     asset_pairs = [
         "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT"
@@ -210,3 +300,5 @@ if __name__ == "__main__":
 
     data_manager = DataManager(asset_pairs, symbols, 2024, 11)
     blocks = data_manager.block_constructor(block_size=3, overlapping=False)
+    
+    
