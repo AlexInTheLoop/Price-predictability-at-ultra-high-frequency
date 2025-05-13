@@ -125,36 +125,36 @@ def plot_all_models(x_data,
 
     fig.show()
 
+
 def sub_plots_comp(result, pairs, year, month, day, test):
     is_daily = day is not None
     global_title = f"Fraction of predictable {'hourly' if is_daily else 'daily'} intervals ({test})"
     y_axis_title = "Fraction of predictable hours" if is_daily else "Fraction of predictable days"
     x_axis_title = "Aggregation level"
-
     num_pairs = len(pairs)
     cols = 3
     rows = -(-num_pairs // cols)
     fig = make_subplots(
         rows=rows,
         cols=cols,
-        subplot_titles=pairs,
         shared_xaxes=True,
         shared_yaxes=True,
-        vertical_spacing=0.05,
-        horizontal_spacing=0.05
+        vertical_spacing=0.1,
+        horizontal_spacing=0.03
     )
-
     periods = day if is_daily else month
     if is_daily:
         legend_labels = [f"{d}/{month:02d}/{year}" for d in day]
     else:
         legend_labels = [calendar.month_name[m] for m in month]
     colors = px.colors.qualitative.Plotly[:len(periods)]
-
+    
+    annotations = []
+    
     for idx, pair in enumerate(pairs):
         row = idx // cols + 1
         col = idx % cols + 1
-
+        
         for period_idx, period in enumerate(periods):
             y_values = [result[period][level][idx] for level in range(len(result[period]))]
             x_values = list(range(1, len(y_values) + 1))
@@ -162,25 +162,45 @@ def sub_plots_comp(result, pairs, year, month, day, test):
                 go.Scatter(
                     x=x_values,
                     y=y_values,
-                    mode='lines+markers',
+                    mode='lines',
                     name=legend_labels[period_idx],
-                    line=dict(color=colors[period_idx]),
+                    line=dict(color=colors[period_idx], width=2),
                     legendgroup=legend_labels[period_idx],
                     showlegend=(idx == 0)
                 ),
                 row=row,
                 col=col
             )
-
-
+    
+    annotations.append(dict(
+        text=x_axis_title,
+        x=0.5,
+        y=-0.15,
+        xref="paper",
+        yref="paper",
+        showarrow=False,
+        font=dict(size=17)
+    ))
+    
+    annotations.append(dict(
+        text=y_axis_title,
+        x=-0.07,
+        y=0.5,
+        xref="paper",
+        yref="paper",
+        showarrow=False,
+        textangle=-90,
+        font=dict(size=17)
+    ))
+    
     fig.update_layout(
         title=dict(
             text=global_title,
             x=0.5,
             xanchor="center",
-            font=dict(size=21) 
+            font=dict(size=21)
         ),
-        height=300 * rows, 
+        height=300 * rows,
         width=1000,
         legend_title="Periods",
         legend=dict(
@@ -190,31 +210,27 @@ def sub_plots_comp(result, pairs, year, month, day, test):
             xanchor="center",
             x=0.5
         ),
-        margin=dict(t=50, b=100, l=100, r=50),
-        annotations=[
-            dict(
-                text=x_axis_title,
-                x=0.5,
-                y=-0.15,
-                xref="paper",
-                yref="paper",
-                showarrow=False,
-                font=dict(size=17)
-            ),
-            dict(
-                text=y_axis_title,
-                x=-0.07,
-                y= 0.18 + (0.05 * (rows - 1)),
-                xref="paper",
-                yref="paper",
-                showarrow=False,
-                textangle=-90,
-                font=dict(size=17) 
-            )
-        ]
+        margin=dict(t=80, b=100, l=100, r=50),
+        annotations=annotations
     )
-
-    for i in range(1, cols + 1):
-        fig.update_xaxes(title_text=None, row=rows, col=i)
-
+    
+    for i in range(num_pairs):
+        row = i // cols + 1
+        col = i % cols + 1
+        
+        xref = f"x{i+1}" if i > 0 else "x"
+        yref = f"y{i+1}" if i > 0 else "y"
+        
+        fig.add_annotation(
+            text=pairs[i],
+            x=0.5,
+            y=-0.15,
+            xref=xref + " domain",
+            yref=yref + " domain",
+            showarrow=False,
+            font=dict(size=14),
+            xanchor="center",
+            yanchor="top"
+        )
+    
     fig.show()
