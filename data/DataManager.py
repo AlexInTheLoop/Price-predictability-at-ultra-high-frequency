@@ -4,7 +4,7 @@ import os
 import math
 import sys
 import os
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.BlockConstructors import non_overlapping_blocks, overlapping_blocks
 from data.DataCollectors import RAW_DATA_FOLDER
@@ -255,7 +255,7 @@ class DataManager:
         aggregation_levels: list,
         max_interval_sec: float = 1.0
     ) -> None:
- 
+
         when = getattr(self, 'when', None)
         year, month, day = None, None, None
         if isinstance(when, str):
@@ -274,18 +274,28 @@ class DataManager:
             max_interval_sec=max_interval_sec
         )
 
-        plt.figure(figsize=(8, 4))
-        plt.plot(
-            df.index,
-            df['fraction_within_1s'],
-            marker='o',
-            linestyle='-'
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['fraction_within_1s'],
+            mode='lines+markers',
+            marker=dict(size=6),
+            line=dict(width=2),
+            name='Transactions ≤ {}s'.format(max_interval_sec)
+        ))
+
+        fig.update_layout(
+            title=f'Transaction Frequency for {pair}',
+            xaxis_title='Aggregation Level',
+            yaxis_title=f'Fraction transactions ≤ {max_interval_sec}s',
+            height=600,
+            width=900,
+            template='plotly_white'
         )
-        plt.xlabel('Aggregation Level')
-        plt.ylabel(f'Fraction transactions ≤ {max_interval_sec}s')
-        plt.title(f'Transaction Frequency for {pair}')
-        plt.grid(True)
-        plt.show()
+
+        fig.show()
+
 
 
 if __name__ == "__main__":
