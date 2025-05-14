@@ -13,17 +13,17 @@ def plot_block_frequencies(df):
 
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=("Absolute frequency", "Relative frequency"),
+        subplot_titles=("Blocks absolute frequency", "Blocks relative frequency"),
         shared_yaxes=False
     )
 
     fig.add_trace(
-        go.Bar(x=blocks, y=abs_freq, name="Absolute frequency", marker_color="blue"),
+        go.Bar(x=blocks, y=abs_freq, name="Blocks absolute frequency", marker_color="blue"),
         row=1, col=1
     )
 
     fig.add_trace(
-        go.Bar(x=blocks, y=rlt_freq, name="Relative frequency", marker_color="red"),
+        go.Bar(x=blocks, y=rlt_freq, name="Blocks relative frequency", marker_color="red"),
         row=1, col=2
     )
 
@@ -33,8 +33,8 @@ def plot_block_frequencies(df):
         yaxis_title="Absolute Frequency",
         xaxis2_title="Blocks",
         yaxis2_title="Relative Frequency",
-        height=800,
-        width=1500,
+        height=600,
+        width=1200,
         showlegend=False
     )
     fig.show()
