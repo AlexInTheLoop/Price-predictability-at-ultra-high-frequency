@@ -79,7 +79,7 @@ class PredictableDayAnalysis:
                 'Student distribution standard deviation': scale,
                 'Returns mean': mean_return,
                 'Fractions of zero-returns': zero_fraction,
-                'KL Divergence statistics': stat,
+                'NP Statistic statistics': stat,
                 'Empirical quantile': quantile_99
             }
 

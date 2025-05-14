@@ -2,7 +2,7 @@ from data.DataManager import DataManager
 from main.RandomnessAnalysis import RandomnessAnalysis
 import pandas as pd
 import numpy as np
-from utils.VisualizationTools import plot_3D_entropy_bias
+from utils.VisualizationTools import plot_3D
 
 DEFAULT_SYMBOLS = {
                     0: [(-np.inf, 0), (False, False)],
@@ -43,10 +43,10 @@ class MultiTester:
             _ = analysis.compute_blocks_frequencies()
             if test == 'Entropy Bias':
                 test_result = analysis.entropy_bias_test()
-            elif test == 'KL Divergence':
+            elif test == 'NP Statistic':
                 test_result = analysis.KL_divergence_test()
             else:
-                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'KL Divergence'.")
+                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
 
             self.results_by_block_size['Block size'].append(i)
             self.results_by_block_size['Test statistic'].append(test_result.iloc[0, 0])
@@ -84,10 +84,10 @@ class MultiTester:
             _ = analysis.compute_blocks_frequencies()
             if test == 'Entropy Bias':
                 test_result = analysis.entropy_bias_test()
-            elif test == 'KL Divergence':
+            elif test == 'NP Statistic':
                 test_result = analysis.KL_divergence_test()
             else:
-                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'KL Divergence'.")
+                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
 
             self.results_by_aggregation_level['Aggregation level'].append(i)
             self.results_by_aggregation_level['Test statistic'].append(test_result.iloc[0, 0])
@@ -123,15 +123,14 @@ class MultiTester:
 
                 if test == 'Entropy Bias':
                     test_result = analysis.entropy_bias_test()
-                elif test == 'KL Divergence':
+                elif test == 'NP Statistic':
                     test_result = analysis.KL_divergence_test()
                 else:
-                    raise ValueError("Invalid test type. Use 'Entropy Bias' or 'KL Divergence'.")
+                    raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
 
                 stat = test_result.iloc[0, 0]
                 quantile_99 = test_result.iloc[3, 0]
 
                 result_3D[i - 1, j - 1, 0] = stat
                 result_3D[i - 1, j - 1, 1] = quantile_99
-        plot_3D_entropy_bias(result_3D,test)
-        
+        plot_3D(result_3D,test)

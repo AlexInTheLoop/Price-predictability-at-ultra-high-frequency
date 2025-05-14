@@ -27,7 +27,7 @@ class DataGenerator:
                      n_days=80,
                      alpha=1.63,
                      prob=0.38,
-                     test = 'KL Divergence',
+                     test = 'NP Statistic',
                      overlapping=True,
                      k=None,
                      plots=(True,False)):
@@ -62,7 +62,7 @@ class DataGenerator:
                 analysis = RandomnessAnalysis(blocks_df, self.s)
                 if test == 'Entropy Bias':
                     result = analysis.entropy_bias_test()
-                elif test == 'KL Divergence':
+                elif test == 'NP Statistic':
                     result = analysis.KL_divergence_test()
                 else:
                     raise ValueError("Test not implemented")
@@ -74,7 +74,7 @@ class DataGenerator:
                 analysis = RandomnessAnalysis(blocks_df, self.s)
                 if test == 'Entropy Bias':
                     result = analysis.entropy_bias_test()
-                elif test == 'KL Divergence':
+                elif test == 'NP Statistic':
                     result = analysis.KL_divergence_test()
                 else:
                     raise ValueError("Test not implemented")
@@ -206,7 +206,7 @@ class DataGenerator:
                         analysis = RandomnessAnalysis(blocks_df, self.s)
                         if test == 'Entropy Bias':
                             result = analysis.entropy_bias_test()
-                        elif test == 'KL Divergence':
+                        elif test == 'NP Statistic':
                             result = analysis.KL_divergence_test()
                         else:
                             raise ValueError("Test not implemented")
@@ -219,7 +219,7 @@ class DataGenerator:
                         analysis = RandomnessAnalysis(blocks_df, self.s)
                         if test == 'Entropy Bias':
                             result = analysis.entropy_bias_test()
-                        elif test == 'KL Divergence':
+                        elif test == 'NP Statistic':
                             result = analysis.KL_divergence_test()
                         else:
                             raise ValueError("Test not implemented")
@@ -286,7 +286,7 @@ class DataGenerator:
                         analysis = RandomnessAnalysis(blocks_df, self.s)
                         if test == 'Entropy Bias':
                             result = analysis.entropy_bias_test()
-                        elif test == 'KL Divergence':
+                        elif test == 'NP Statistic':
                             result = analysis.KL_divergence_test()
                         else:
                             raise ValueError("Test not implemented")
@@ -299,7 +299,7 @@ class DataGenerator:
                 analysis = RandomnessAnalysis(blocks_df, self.s)
                 if test == 'Entropy Bias':
                     result = analysis.entropy_bias_test()
-                elif test == 'KL Divergence':
+                elif test == 'NP Statistic':
                     result = analysis.KL_divergence_test()
                 else:
                     raise ValueError("Test not implemented")
@@ -366,9 +366,9 @@ class DataGenerator:
                         
 if __name__ == "__main__":
     data_gen = DataGenerator()
-    #data_gen.lambda_model(test='KL Divergence',overlapping=True,max_aggregation_level=5,n_days=2,plots=(False,True))
-    #data_gen.OD_model(test='KL Divergence',overlapping=True,max_aggregation_level=5,n_days=2,plots=(False,True))
-    #data_gen.TS_model(test='KL Divergence',overlapping=True,max_aggregation_level=10,n_days=2,plots=(False,True))
+    #data_gen.lambda_model(test='NP Statistic',overlapping=True,max_aggregation_level=5,n_days=2,plots=(False,True))
+    #data_gen.OD_model(test='NP Statistic',overlapping=True,max_aggregation_level=5,n_days=2,plots=(False,True))
+    #data_gen.TS_model(test='NP Statistic',overlapping=True,max_aggregation_level=10,n_days=2,plots=(False,True))
     data_gen.plot_all(what='aggregation level')
     data_gen.plot_all(what='time lag')
     

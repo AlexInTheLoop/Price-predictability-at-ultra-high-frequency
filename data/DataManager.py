@@ -143,7 +143,7 @@ class DataManager:
                                     f"_A={self.aggregation_level}.csv")
             dataset.to_csv(filename, index=True)
     
-    def exist(self, pair, block_size=None):
+    def exist(self, pair, block_size=None, overlapping="F"):
         exist = False
 
         if block_size is None:
@@ -162,7 +162,8 @@ class DataManager:
                 f"{BLOCKS_FOLDER}/{pair.upper()}"
                 + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
                 + f"_A={self.aggregation_level}"
-                + f"_size={block_size}.csv"
+                + f"_size={block_size}"
+                + f"_O={overlapping}.csv"
             )
 
             if os.path.exists(filename):
@@ -173,14 +174,16 @@ class DataManager:
         if pairs is None:
             pairs = self.assets_pairs
         self.blocks = {}
+        status = "F" if not overlapping else "T"
         for pair in pairs:
             filename = (
                 f"{BLOCKS_FOLDER}/{pair.upper()}"
                 + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
                 + f"_A={self.aggregation_level}"
-                + f"_size={block_size}.csv"
+                + f"_size={block_size}"
+                + f"_O={status}.csv"
             )
-            if self.exist(pair, block_size):
+            if self.exist(pair, block_size, overlapping=status):
                 self.blocks[pair] = pd.read_csv(filename, header=None)
                 continue
             n = len(self.datasets[pair])

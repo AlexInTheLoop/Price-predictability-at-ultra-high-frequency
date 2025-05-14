@@ -116,7 +116,7 @@ class RandomnessAnalysis:
 
         result = pd.DataFrame(
             {
-                "KL Divergence": [D],
+                "NP Statistic": [D],
                 "Quantile 90%": [quantile_90],
                 "Quantile 95%": [quantile_95],
                 "Quantile 99%": [quantile_99],
@@ -127,7 +127,7 @@ class RandomnessAnalysis:
         )
 
         result = result.T
-        result.columns = ["KL Divergence test"]
+        result.columns = ["NP Statistic test"]
         return result
 
 

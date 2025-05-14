@@ -18,12 +18,12 @@ def plot_block_frequencies(df):
     )
 
     fig.add_trace(
-        go.Bar(x=blocks, y=abs_freq, name="Blocks absolute frequency", marker_color="blue"),
+        go.Bar(x=blocks, y=abs_freq, name="Blocks absolute frequency", marker_color="gray"),
         row=1, col=1
     )
 
     fig.add_trace(
-        go.Bar(x=blocks, y=rlt_freq, name="Blocks relative frequency", marker_color="red"),
+        go.Bar(x=blocks, y=rlt_freq, name="Blocks relative frequency", marker_color="black"),
         row=1, col=2
     )
 
@@ -39,7 +39,7 @@ def plot_block_frequencies(df):
     )
     fig.show()
 
-def plot_3D_entropy_bias(test_results,test='Entropy Bias'):
+def plot_3D(test_results,test='Entropy Bias'):
     bias_surface = test_results[:, :, 0] 
     quantile_99_surface = test_results[:, :, 1]
 
@@ -98,6 +98,58 @@ def plot_predictability(aggregation_levels, predictability, x_label='Aggregation
         width=900
     )
     fig.show()
+
+def plot_test(x_values, 
+              y1_values, y2_values, 
+              test='Entropy Bias',
+              x_label='aggregation Level',
+              pair=''):
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=x_values,
+        y=y1_values,
+        mode='lines',
+        name='Test statistic',
+        line=dict(color="dark red", width=2)
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=x_values,
+        y=y2_values,
+        mode='lines',
+        name='Quantile 99%',
+        line=dict(color='dark green', width=2)
+    ))
+
+    fig.update_layout(
+        title=dict(
+            text=test + " by " + x_label + " for " + pair,
+            x=0.5,
+            xanchor="center",
+            font=dict(size=20)
+        ),
+        xaxis_title=dict(
+            text="By " + x_label,
+            font=dict(size=16)
+        ),
+        yaxis_title=dict(
+            text= test + " statistic and quantile 99%",
+            font=dict(size=16)
+        ),
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.99
+        ),
+        height=700,
+        width=900,
+        template="plotly_white"
+    )
+    
+    fig.show()
+
 
 def plot_all_models(x_data, 
                          y_data, 

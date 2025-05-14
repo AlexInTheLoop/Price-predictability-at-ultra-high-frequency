@@ -76,12 +76,12 @@ def localization_predictable_intervals(data_manager, pair, block_size=None, wind
             analyser = RandomnessAnalysis(blocks, s)
             test_result = analyser.entropy_bias_test(m=m)
 
-        elif test == 'KL Divergence':
+        elif test == 'NP Statistic':
             blocks = pd.DataFrame(overlapping_blocks(symbols, block_size))
             analyser = RandomnessAnalysis(blocks, s)
             test_result = analyser.KL_divergence_test(m=m)
         else:
-            raise ValueError("Test not recognized. Choose between 'Entropy Bias' and 'KL Divergence'.")
+            raise ValueError("Test not recognized. Choose between 'Entropy Bias' and 'NP Statistic'.")
         
         result[start] = [end,
                          test_result.iloc[0,0], 
@@ -155,12 +155,12 @@ def intervals_analysis(pairs,
                         blocks = pd.DataFrame(non_overlapping_blocks(group["symbol"].values, block_size))
                         analyser = RandomnessAnalysis(blocks, len(symbols.keys()))
                         test_result = analyser.entropy_bias_test()
-                    elif test == 'KL Divergence':
+                    elif test == 'NP Statistic':
                         blocks = pd.DataFrame(overlapping_blocks(group["symbol"].values, block_size))
                         analyser = RandomnessAnalysis(blocks, len(symbols.keys()))
                         test_result = analyser.KL_divergence_test()
                     else:
-                        raise ValueError("Test not recognized. Choose between 'Entropy Bias' and 'KL Divergence'.")
+                        raise ValueError("Test not recognized. Choose between 'Entropy Bias' and 'NP Statistic'.")
                     
                     if test_result.iloc[6,0]:
                         frac_pred[-1] += 1 / nb_sub_periods
