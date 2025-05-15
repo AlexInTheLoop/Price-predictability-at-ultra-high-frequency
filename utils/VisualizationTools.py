@@ -286,3 +286,4 @@ def sub_plots_comp(result, pairs, year, month, day, test):
         )
     
     fig.show()
+

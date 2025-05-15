@@ -7,10 +7,15 @@ import requests
 import zipfile
 import time
 import pandas as pd
+import time
 
 RAW_DATA_FOLDER = "data/raw_data"
-if not os.path.exists(RAW_DATA_FOLDER):
-    os.makedirs(RAW_DATA_FOLDER)
+RAW_PARQUET_FOLDER = "data/raw_data_parquet"
+
+os.makedirs(RAW_DATA_FOLDER, exist_ok=True)
+os.makedirs(RAW_PARQUET_FOLDER, exist_ok=True)
+
+
 
 class RealTimeDataCollector:
     def __init__(self, pairs, duration_hours, update_interval):
@@ -159,12 +164,120 @@ class HistoricalDataCollector:
                     print(f"[SYSTEM] ZIP file deleted: {zip_filename}")
 
 
+
+class HistoricalDataCollectorParquet:
+    """
+    Télécharge les fichiers Binance, extrait le CSV et convertit immédiatement en parquet.
+    """
+    BASE_URL = "https://data.binance.vision/data/spot"
+
+    def __init__(self, pairs, year, month, day=None):
+        self.crypto_pairs = pairs
+        self.year = str(year)
+        self.month = f"{int(month):02d}"
+        self.day = f"{int(day):02d}" if day else None
+
+    def _build_file_paths(self, pair):
+        if self.day:
+            zip_filename = f"{pair}-trades-{self.year}-{self.month}-{self.day}.zip"
+            csv_filename = f"{pair}-trades-{self.year}-{self.month}-{self.day}.csv"
+        else:
+            zip_filename = f"{pair}-trades-{self.year}-{self.month}.zip"
+            csv_filename = f"{pair}-trades-{self.year}-{self.month}.csv"
+
+        zip_filepath = os.path.join(RAW_DATA_FOLDER, zip_filename)
+        csv_output_path = os.path.join(RAW_DATA_FOLDER, csv_filename)
+        parquet_output_path = os.path.join(RAW_PARQUET_FOLDER, csv_filename.replace(".csv", ".parquet"))
+        return zip_filename, csv_filename, zip_filepath, csv_output_path, parquet_output_path
+
+    def _download_zip(self, pair, zip_filename, zip_filepath):
+        if self.day:
+            url = f"{self.BASE_URL}/daily/trades/{pair}/{zip_filename}"
+        else:
+            url = f"{self.BASE_URL}/monthly/trades/{pair}/{zip_filename}"
+
+        print(f"[SYSTEM] Downloading {zip_filename} from {url} ...")
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(zip_filepath, 'wb') as f:
+                f.write(response.content)
+            print(f"[SYSTEM] File downloaded: {zip_filename}")
+        else:
+            raise Exception(f"Error for pair {pair} ({response.status_code})")
+
+    def _extract_zip(self, zip_filepath, output_dir):
+        print(f"[SYSTEM] Extracting {zip_filepath} ...")
+        with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
+            zip_ref.extractall(output_dir)
+        print(f"[SYSTEM] Extraction finished.")
+
+    def collect(self):
+        for pair in self.crypto_pairs:
+            print(f"[SYSTEM] Processing {pair}...")
+            zip_filename, csv_filename, zip_filepath, csv_output_path, parquet_output_path = self._build_file_paths(pair)
+
+            if os.path.exists(parquet_output_path):
+                print(f"[SYSTEM] Parquet data already available for {pair} → {parquet_output_path}")
+                continue
+
+            try:
+                if not os.path.exists(zip_filepath):
+                    self._download_zip(pair, zip_filename, zip_filepath)
+                else:
+                    print(f"[SYSTEM] ZIP already exists: {zip_filename}")
+
+                self._extract_zip(zip_filepath, RAW_DATA_FOLDER)
+
+                # conversion CSV → Parquet
+                print(f"[SYSTEM] Converting {csv_filename} → Parquet ...")
+                df = pd.read_csv(csv_output_path)
+                df = pd.read_csv(csv_output_path, header=None)
+                df.columns = [
+                    "trade_id", "price", "qty", "quoteQty",
+                    "time", "isBuyerMaker", "isBestMatch"
+                ]
+                df.rename(columns={
+                    "qty": "volume",
+                    "quoteQty": "quote_qty",
+                    "time": "timestamp",
+                    "isBuyerMaker": "is_buyer_maker",
+                    "isBestMatch": "is_best_match"
+                }, inplace=True)
+                
+                df.to_parquet(parquet_output_path, index=False)
+                time.sleep(1)
+                print(f"[SYSTEM] Saved parquet to: {parquet_output_path}")
+
+                # optionnel : supprimer le CSV brut
+                os.remove(csv_output_path)
+                print(f"[SYSTEM] Deleted temporary CSV file: {csv_output_path}")
+
+            finally:
+                if os.path.exists(zip_filepath):
+                    os.remove(zip_filepath)
+                    print(f"[SYSTEM] Deleted ZIP: {zip_filepath}")
+
+
 if __name__ == "__main__":
+    mode = "historical"  # ou "realtime"
+
     cryptos = [
         "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT", "LTCUSDT", "BCHUSDT"
     ]
-    duration_hours = 1
-    update_interval = 10
 
-    collector = RealTimeDataCollector(cryptos, duration_hours, update_interval)
-    asyncio.run(collector.run())
+    if mode == "historical":
+        collector = HistoricalDataCollectorParquet(
+            pairs=cryptos,
+            year=2024,
+            month=11,
+            day=5
+        )
+        collector.collect()
+
+    elif mode == "realtime":
+        collector = RealTimeDataCollector(
+            cryptos,
+            duration_hours=1,
+            update_interval=10
+        )
+        asyncio.run(collector.run())

@@ -195,7 +195,7 @@ class CrossMultiTester:
             elif test == 'NP Statistic':
                 res = cra.KL_divergence_test()
             else:
-                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
+                raise ValueError("Invalid test type.")
 
             results['Block size'].append(k)
             results['Alpha target'].append(alpha_tgt)
@@ -207,7 +207,7 @@ class CrossMultiTester:
 
         df = pd.DataFrame(results).set_index('Block size')
         return df
-    
+
     def test_by_aggregation_level(self,
                                   test: str = 'Entropy Bias',
                                   aggregation_levels: list[int] = [1,2,5,10],
@@ -250,7 +250,7 @@ class CrossMultiTester:
             elif test == 'NP Statistic':
                 res = cra.KL_divergence_test()
             else:
-                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
+                raise ValueError("Invalid test type.")
 
             results['Aggregation level'].append(alpha_ctx)
             results['Alpha target'].append(alpha_tgt)
@@ -262,26 +262,51 @@ class CrossMultiTester:
 
         df = pd.DataFrame(results).set_index('Aggregation level')
         return df
-    
-    def plot_3D_test_cross_from_results(
-        df_results: pd.DataFrame,
-        test: str = 'Entropy Bias'
-    ) -> None:
 
-        from utils.VisualizationTools import plot_3D
+    def test_grid(self,
+                  test='Entropy Bias',
+                  list_aggregations=[1, 2, 5, 10, 20],
+                  list_block_sizes=[1, 2, 3, 4, 5],
+                  year=2024,
+                  month=11,
+                  day=None):
+        result_3D = np.zeros((max(list_aggregations),
+                              max(list_block_sizes),
+                              2))
 
-        # find grid size
-        agg_levels = sorted(df_results['Aggregation level'].unique())
-        block_sizes = sorted(df_results['Block size'].unique())
+        for alpha_ctx in list_aggregations:
+            dm_ctx = DataManager([self.asset_context], self.symbols,
+                                 year, month, day,
+                                 aggregation_level=alpha_ctx)
+            alpha_tgt = dm_ctx.matching_aggregation_for(self.asset_target)
+            dm_tgt = DataManager([self.asset_target], self.symbols,
+                                 year, month, day,
+                                 aggregation_level=alpha_tgt)
+            blocks_ctx = dm_ctx.block_constructor(block_size=1, overlapping=False)[self.asset_context]
+            blocks_tgt = dm_tgt.block_constructor(block_size=1, overlapping=False)[self.asset_target]
 
-        result_3D = np.full((max(agg_levels), max(block_sizes), 2), np.nan)
+            for k in list_block_sizes:
+                cra = CrossRandomnessAnalysis(
+                    blocks_context=blocks_ctx,
+                    blocks_target=blocks_tgt,
+                    k=k, s=self.s,
+                    asset_context=self.asset_context,
+                    alpha_context=alpha_ctx,
+                    asset_target=self.asset_target,
+                    alpha_target=alpha_tgt
+                )
 
-        # fill grid with results
-        for _, row in df_results.iterrows():
-            a = int(row['Aggregation level']) - 1
-            k = int(row['Block size']) - 1
-            result_3D[a, k, 0] = row['Test statistic']
-            result_3D[a, k, 1] = row['Quantile 99']
+                if test == 'Entropy Bias':
+                    res = cra.entropy_bias_test()
+                elif test == 'NP Statistic':
+                    res = cra.KL_divergence_test()
+                else:
+                    raise ValueError("Invalid test type.")
 
-        plot_3D(result_3D, test)
+                stat = res.iloc[0, 0]
+                quantile_99 = res.iloc[3, 0]
 
+                result_3D[alpha_ctx - 1, k - 1, 0] = stat
+                result_3D[alpha_ctx - 1, k - 1, 1] = quantile_99
+
+        return result_3D
