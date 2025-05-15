@@ -210,17 +210,22 @@ class HistoricalDataCollectorParquet:
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
             zip_ref.extractall(output_dir)
         print(f"[SYSTEM] Extraction finished.")
-
+        
     def collect(self):
         for pair in self.crypto_pairs:
             print(f"[SYSTEM] Processing {pair}...")
             zip_filename, csv_filename, zip_filepath, csv_output_path, parquet_output_path = self._build_file_paths(pair)
 
+            # Vérification fichier final (parquet)
             if os.path.exists(parquet_output_path):
-                print(f"[SYSTEM] Parquet data already available for {pair} → {parquet_output_path}")
+                print(f"[SYSTEM] Parquet data already available for {pair} → {parquet_output_path} → Skipping download.")
                 continue
 
-            try:
+            # Vérification fichier csv existant (si interruption précédente)
+            if os.path.exists(csv_output_path):
+                print(f"[SYSTEM] CSV file already exists for {pair} → {csv_output_path}. Using existing CSV.")
+            else:
+                # Télécharger ZIP si nécessaire
                 if not os.path.exists(zip_filepath):
                     self._download_zip(pair, zip_filename, zip_filepath)
                 else:
@@ -228,35 +233,32 @@ class HistoricalDataCollectorParquet:
 
                 self._extract_zip(zip_filepath, RAW_DATA_FOLDER)
 
-                # conversion CSV → Parquet
-                print(f"[SYSTEM] Converting {csv_filename} → Parquet ...")
-                df = pd.read_csv(csv_output_path)
-                df = pd.read_csv(csv_output_path, header=None)
-                df.columns = [
-                    "trade_id", "price", "qty", "quoteQty",
-                    "time", "isBuyerMaker", "isBestMatch"
-                ]
-                df.rename(columns={
-                    "qty": "volume",
-                    "quoteQty": "quote_qty",
-                    "time": "timestamp",
-                    "isBuyerMaker": "is_buyer_maker",
-                    "isBestMatch": "is_best_match"
-                }, inplace=True)
-                
-                df.to_parquet(parquet_output_path, index=False)
-                time.sleep(1)
-                print(f"[SYSTEM] Saved parquet to: {parquet_output_path}")
+            # Conversion CSV → Parquet
+            print(f"[SYSTEM] Converting {csv_filename} → Parquet ...")
+            df = pd.read_csv(csv_output_path, header=None)
+            df.columns = [
+                "trade_id", "price", "qty", "quoteQty",
+                "time", "isBuyerMaker", "isBestMatch"
+            ]
+            df.rename(columns={
+                "qty": "volume",
+                "quoteQty": "quote_qty",
+                "time": "timestamp",
+                "isBuyerMaker": "is_buyer_maker",
+                "isBestMatch": "is_best_match"
+            }, inplace=True)
 
-                # optionnel : supprimer le CSV brut
-                os.remove(csv_output_path)
-                print(f"[SYSTEM] Deleted temporary CSV file: {csv_output_path}")
+            df.to_parquet(parquet_output_path, index=False)
+            print(f"[SYSTEM] Saved parquet to: {parquet_output_path}")
 
-            finally:
-                if os.path.exists(zip_filepath):
-                    os.remove(zip_filepath)
-                    print(f"[SYSTEM] Deleted ZIP: {zip_filepath}")
+            # Supprimer le CSV intermédiaire
+            os.remove(csv_output_path)
+            print(f"[SYSTEM] Deleted temporary CSV file: {csv_output_path}")
 
+            # Supprimer le ZIP intermédiaire
+            if os.path.exists(zip_filepath):
+                os.remove(zip_filepath)
+                print(f"[SYSTEM] Deleted ZIP: {zip_filepath}")
 
 if __name__ == "__main__":
     mode = "historical"  # ou "realtime"
