@@ -1,5 +1,6 @@
 from data.DataManager import DataManager
 from main.RandomnessAnalysis import RandomnessAnalysis
+from main.CrossRandomnessAnalysis import CrossRandomnessAnalysis
 import pandas as pd
 import numpy as np
 from utils.VisualizationTools import plot_3D
@@ -134,3 +135,153 @@ class MultiTester:
                 result_3D[i - 1, j - 1, 0] = stat
                 result_3D[i - 1, j - 1, 1] = quantile_99
         plot_3D(result_3D,test)
+
+
+class CrossMultiTester:
+    def __init__(self,
+                 asset_context: str,
+                 asset_target:  str,
+                 symbols: dict = DEFAULT_SYMBOLS):
+        self.asset_context = asset_context
+        self.asset_target  = asset_target
+        self.symbols       = symbols
+        self.s             = len(symbols)
+
+    def test_by_block_size(self,
+                            test: str = 'Entropy Bias',
+                            max_block_size: int = 10,
+                            step: int = 1,
+                            alpha_context: int = 1,
+                            year: int = 2024,
+                            month: int = 11,
+                            day: int = None) -> pd.DataFrame:
+
+        results = {
+            'Block size': [],
+            'Alpha target': [],
+            'Test statistic': [],
+            'Quantile 90': [],
+            'Quantile 95': [],
+            'Quantile 99': [],
+            'Mean': []
+        }
+
+        for k in range(1, max_block_size + 1, step):
+
+            dm_ctx = DataManager([self.asset_context], self.symbols,
+                                  year, month, day,
+                                  aggregation_level=alpha_context)
+
+            alpha_tgt = dm_ctx.matching_aggregation_for(self.asset_target)
+            dm_tgt = DataManager([self.asset_target], self.symbols,
+                                  year, month, day,
+                                  aggregation_level=alpha_tgt)
+
+            blocks_ctx = dm_ctx.block_constructor(block_size=1, overlapping=False)[self.asset_context]
+            blocks_tgt = dm_tgt.block_constructor(block_size=1, overlapping=False)[self.asset_target]
+
+            cra = CrossRandomnessAnalysis(
+                blocks_context=blocks_ctx,
+                blocks_target=blocks_tgt,
+                k=k, s=self.s,
+                asset_context=self.asset_context,
+                alpha_context=alpha_context,
+                asset_target=self.asset_target,
+                alpha_target=alpha_tgt
+            )
+
+            if test == 'Entropy Bias':
+                res = cra.entropy_bias_test()
+            elif test == 'NP Statistic':
+                res = cra.KL_divergence_test()
+            else:
+                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
+
+            results['Block size'].append(k)
+            results['Alpha target'].append(alpha_tgt)
+            results['Test statistic'].append(res.iloc[0,0])
+            results['Quantile 90'].append(res.iloc[1,0])
+            results['Quantile 95'].append(res.iloc[2,0])
+            results['Quantile 99'].append(res.iloc[3,0])
+            results['Mean'].append(res.iloc[5,0])
+
+        df = pd.DataFrame(results).set_index('Block size')
+        return df
+    
+    def test_by_aggregation_level(self,
+                                  test: str = 'Entropy Bias',
+                                  aggregation_levels: list[int] = [1,2,5,10],
+                                  k: int = 2,
+                                  year: int = 2024,
+                                  month: int = 11,
+                                  day: int = None) -> pd.DataFrame:
+
+        results = {
+            'Aggregation level': [],
+            'Alpha target': [],
+            'Test statistic': [],
+            'Quantile 90': [],
+            'Quantile 95': [],
+            'Quantile 99': [],
+            'Mean': []
+        }
+        for alpha_ctx in aggregation_levels:
+            dm_ctx = DataManager([self.asset_context], self.symbols,
+                                  year, month, day,
+                                  aggregation_level=alpha_ctx)
+            alpha_tgt = dm_ctx.matching_aggregation_for(self.asset_target)
+            dm_tgt = DataManager([self.asset_target], self.symbols,
+                                  year, month, day,
+                                  aggregation_level=alpha_tgt)
+            blocks_ctx = dm_ctx.block_constructor(block_size=1, overlapping=False)[self.asset_context]
+            blocks_tgt = dm_tgt.block_constructor(block_size=1, overlapping=False)[self.asset_target]
+
+            cra = CrossRandomnessAnalysis(
+                blocks_context=blocks_ctx,
+                blocks_target=blocks_tgt,
+                k=k, s=self.s,
+                asset_context=self.asset_context,
+                alpha_context=alpha_ctx,
+                asset_target=self.asset_target,
+                alpha_target=alpha_tgt
+            )
+            if test == 'Entropy Bias':
+                res = cra.entropy_bias_test()
+            elif test == 'NP Statistic':
+                res = cra.KL_divergence_test()
+            else:
+                raise ValueError("Invalid test type. Use 'Entropy Bias' or 'NP Statistic'.")
+
+            results['Aggregation level'].append(alpha_ctx)
+            results['Alpha target'].append(alpha_tgt)
+            results['Test statistic'].append(res.iloc[0,0])
+            results['Quantile 90'].append(res.iloc[1,0])
+            results['Quantile 95'].append(res.iloc[2,0])
+            results['Quantile 99'].append(res.iloc[3,0])
+            results['Mean'].append(res.iloc[5,0])
+
+        df = pd.DataFrame(results).set_index('Aggregation level')
+        return df
+    
+    def plot_3D_test_cross_from_results(
+        df_results: pd.DataFrame,
+        test: str = 'Entropy Bias'
+    ) -> None:
+
+        from utils.VisualizationTools import plot_3D
+
+        # find grid size
+        agg_levels = sorted(df_results['Aggregation level'].unique())
+        block_sizes = sorted(df_results['Block size'].unique())
+
+        result_3D = np.full((max(agg_levels), max(block_sizes), 2), np.nan)
+
+        # fill grid with results
+        for _, row in df_results.iterrows():
+            a = int(row['Aggregation level']) - 1
+            k = int(row['Block size']) - 1
+            result_3D[a, k, 0] = row['Test statistic']
+            result_3D[a, k, 1] = row['Quantile 99']
+
+        plot_3D(result_3D, test)
+

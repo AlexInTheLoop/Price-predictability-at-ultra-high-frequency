@@ -28,3 +28,15 @@ def cross_overlapping_blocks(context_symbols,target_symbols,k):
         rows.append(block_context + (symbol_target,))
     
     return np.array(rows, dtype=int)
+
+def cross_non_overlapping_blocks(ctx, tgt, k):
+    N = min(len(ctx), len(tgt))
+    n_blocks = N // k
+    rows = []
+    for i in range(n_blocks - 1):
+        start = i * k
+        block_ctx = tuple(ctx[start : start + k])
+        sym_tgt  = tgt[(i + 1) * k]
+        rows.append(block_ctx + (sym_tgt,))
+    return np.array(rows, dtype=int)
+

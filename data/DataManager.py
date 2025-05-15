@@ -66,7 +66,17 @@ class DataManager:
                                  header=None, 
                                  names=["trade_id", "price", "volume", "quote_qty","timestamp","is_buyer_maker","is_best_match"])
             df["timestamp"] = pd.to_numeric(df["timestamp"])
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit='ms')
+            ts = df["timestamp"].astype(float)
+            max_ts = ts.max()
+
+            if max_ts > 1e14:
+                unit = "us"  # microsecondes
+            elif max_ts > 1e11:
+                unit = "ms"  # millisecondes
+            else:
+                unit = "s"   # secondes
+
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit=unit)
             
             #df['duration'] = df['timestamp'].diff().fillna(0)
             df['log price'] = np.log(df['price'])
@@ -201,7 +211,22 @@ class DataManager:
             self.blocks[pair].to_csv(filename, index=False, header=False)
 
         return self.blocks
+    
+    def matching_aggregation_for(self,asset_other,blocks):
+        
+        self_asset = self.assets_pairs[0]
+        n_self_blocks = len(self.datasets[self_asset]['symbol'])
+        M = blocks or n_self_blocks
 
+        dm0 = DataManager([asset_other],
+                          self.symbols,
+                          self.year, self.month, self.day,
+                          aggregation_level=1)
+        n_other = len(dm0.datasets[asset_other]['symbol'])
+
+        # 3) déterminer alpha_other
+        return max(1, n_other // M)
+    
     def compute_tx_frequency_metrics(
         self,
         pair: str,
@@ -223,83 +248,113 @@ class DataManager:
             'fraction_within_1s': frac_within
         }
 
+
+    @staticmethod
     def summarize_transaction_characteristics(
-        pair: str,
+        pairs: list[str],
         symbols: dict,
         year: int,
         month: int,
         day: int = None,
-        aggregation_levels: list = [1, 5, 10, 50],
+        aggregation_levels: list[int] = [1, 5, 10, 50],
         max_interval_sec: float = 1.0
     ) -> pd.DataFrame:
-
+        
         records = []
-        for lvl in aggregation_levels:
-            dm = DataManager(
-                asset_pairs=[pair],
+        for pair in pairs:
+            for lvl in aggregation_levels:
+                dm = DataManager(
+                    asset_pairs=[pair],
+                    symbols=symbols,
+                    year=year, month=month, day=day,
+                    aggregation_level=lvl
+                )
+                dm.load_data()
+                dm.checks = [False] * len(dm.checks)   # force re-preprocess
+                dm.preprocess_data()
+
+                m = dm.compute_tx_frequency_metrics(pair, max_interval_sec)
+                m['pair'] = pair
+                records.append(m)
+
+        df = pd.DataFrame(records)
+        return df.set_index(['pair','aggregation_level'])
+
+    def plot_transaction_frequency_two(
+        pairs: list[str],
+        symbols: dict,
+        year: int,
+        month: int,
+        day: int,
+        aggregation_levels: list[int],
+        max_interval_sec: float = 1.0
+    ) -> go.Figure:
+
+        fig = go.Figure()
+        for pair in pairs:
+            df = DataManager.summarize_transaction_characteristics(
+                pair=pair,
                 symbols=symbols,
                 year=year,
                 month=month,
                 day=day,
-                aggregation_level=lvl
+                aggregation_levels=aggregation_levels,
+                max_interval_sec=max_interval_sec
             )
-            dm.load_data()
-            dm.checks = [False for _ in dm.checks]   # <- clé pour forcer le preprocess !
-            dm.preprocess_data()
-            m = dm.compute_tx_frequency_metrics(pair, max_interval_sec)
-            records.append(m)
-
-        df = pd.DataFrame(records)
-        return df.set_index('aggregation_level')
-
-    def plot_transaction_frequency(
-        self,
-        pair: str,
-        aggregation_levels: list,
-        max_interval_sec: float = 1.0
-    ) -> None:
-
-        when = getattr(self, 'when', None)
-        year, month, day = None, None, None
-        if isinstance(when, str):
-            parts = when.split('-')
-            year = int(parts[0])
-            month = int(parts[1]) if len(parts) > 1 else None
-            day = int(parts[2]) if len(parts) > 2 else None
-
-        df = DataManager.summarize_transaction_characteristics(
-            pair=pair,
-            symbols=self.symbols,
-            year=year,
-            month=month,
-            day=day,
-            aggregation_levels=aggregation_levels,
-            max_interval_sec=max_interval_sec
-        )
-
-        fig = go.Figure()
-
-        fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['fraction_within_1s'],
-            mode='lines+markers',
-            marker=dict(size=6),
-            line=dict(width=2),
-            name='Transactions ≤ {}s'.format(max_interval_sec)
-        ))
+            fig.add_trace(go.Scatter(
+                x=df.index,
+                y=df['fraction_within_1s'],
+                mode='lines+markers',
+                name=pair
+            ))
 
         fig.update_layout(
-            title=f'Transaction Frequency for {pair}',
-            xaxis_title='Aggregation Level',
-            yaxis_title=f'Fraction transactions ≤ {max_interval_sec}s',
-            height=600,
-            width=900,
-            template='plotly_white'
+            title=f"Fraction of intervals ≤ {max_interval_sec}s",
+            xaxis_title="Aggregation Level",
+            yaxis_title=f"Fraction ≤ {max_interval_sec}s",
+            template="plotly_white",
+            height=500,
+            width=800
         )
+        return fig
 
-        fig.show()
+    def plot_transaction_counts(
+        pairs: list[str],
+        symbols: dict,
+        year: int,
+        month: int,
+        day: int,
+        aggregation_levels: list[int]
+    ) -> go.Figure:
+        
+        fig = go.Figure()
+        for pair in pairs:
+            # get the summary table for this pair
+            df = DataManager.summarize_transaction_characteristics(
+                pair=pair,
+                symbols=symbols,
+                year=year,
+                month=month,
+                day=day,
+                aggregation_levels=aggregation_levels
+            )
+            # plot total_transactions vs aggregation_level
+            fig.add_trace(go.Scatter(
+                x=df.index,
+                y=df['total_transactions'],
+                mode='lines+markers',
+                name=pair
+            ))
 
-
+        fig.update_layout(
+            title="Total Transactions vs Aggregation Level",
+            xaxis_title="Aggregation Level",
+            yaxis_title="Total Transactions",
+            template="plotly_white",
+            height=500,
+            width=800
+        )
+        return fig
 
 if __name__ == "__main__":
     asset_pairs = [
