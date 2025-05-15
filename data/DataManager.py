@@ -9,6 +9,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.BlockConstructors import non_overlapping_blocks, overlapping_blocks
 from data.DataCollectors import RAW_DATA_FOLDER
 
+RAW_PARQUET_FOLDER = "data/raw_data_parquet"
+
 PREPROCCESSED_DATA_FOLDER = "data/preprocessed_data"
 if not os.path.exists(PREPROCCESSED_DATA_FOLDER):
     os.makedirs(PREPROCCESSED_DATA_FOLDER)
@@ -55,41 +57,50 @@ class DataManager:
         self.preprocess_data()
         self.save_data()
 
+
     def load_data(self):
         for pair in self.assets_pairs:
-            if self.when is None:
-                filename = f"{RAW_DATA_FOLDER}/REAL_TIME_{pair.upper()}.csv"
-                df = pd.read_csv(filename, usecols=["timestamp", "price"])
+            parquet_file = os.path.join(RAW_PARQUET_FOLDER, f"{pair.upper()}-trades-{self.when}.parquet")
+            csv_file = os.path.join(RAW_DATA_FOLDER, f"{pair.upper()}-trades-{self.when}.csv")
+
+            if os.path.exists(parquet_file):
+                print(f"[DataManager] Loading parquet file: {parquet_file}")
+                df = pd.read_parquet(parquet_file)
+
+            elif os.path.exists(csv_file):
+                print(f"[DataManager] Loading csv file: {csv_file}")
+                df = pd.read_csv(csv_file,
+                                header=None,
+                                names=["trade_id", "price", "volume", "quote_qty",
+                                        "timestamp", "is_buyer_maker", "is_best_match"])
             else:
-                filename = os.path.join(RAW_DATA_FOLDER, f"{pair.upper()}-trades-{self.when}.csv")
-                df = pd.read_csv(filename,
-                                 header=None, 
-                                 names=["trade_id", "price", "volume", "quote_qty","timestamp","is_buyer_maker","is_best_match"])
+                raise FileNotFoundError(f"Neither parquet nor csv file found for {pair} ({self.when})")
+
             df["timestamp"] = pd.to_numeric(df["timestamp"])
             ts = df["timestamp"].astype(float)
             max_ts = ts.max()
 
             if max_ts > 1e14:
-                unit = "us"  # microsecondes
+                unit = "us"
             elif max_ts > 1e11:
-                unit = "ms"  # millisecondes
+                unit = "ms"
             else:
-                unit = "s"   # secondes
+                unit = "s"
 
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit=unit)
-            
-            #df['duration'] = df['timestamp'].diff().fillna(0)
             df['log price'] = np.log(df['price'])
             df.sort_index(inplace=True)
+
             if self.aggregate_by_time:
                 df = df.groupby('timestamp').agg({
-                    'timestamp':'first',
-                    'volume':'sum',
-                    'log price':'last'#,
-                    #'duration':'sum'
+                    'timestamp': 'first',
+                    'volume': 'sum',
+                    'log price': 'last'
                 }).reset_index(drop=True)
+
             df.set_index("timestamp", inplace=True)
             self.datasets[pair] = df
+
 
     def preprocess_data(self):
         for i, (pair,dataset) in enumerate(self.datasets.items()):
@@ -140,77 +151,101 @@ class DataManager:
                                     ) 
             
             dataset["symbol"] = dataset["symbol"].astype(int)
+            dataset["symbol"] = dataset["symbol"].astype(np.int8)
 
             self.datasets[pair] = dataset
 
     def save_data(self):
-        for i, (pair,dataset) in enumerate(self.datasets.items()):
+        for i, (pair, dataset) in enumerate(self.datasets.items()):
             if self.checks[i]:
                 continue
-            filename = os.path.join(PREPROCCESSED_DATA_FOLDER, f"{pair.upper()}_processed" + 
-                                    (f"_{self.when}" if self.when is not None else "_REAL_TIME") +
-                                    f"_S={len(self.symbols.keys())}" + 
-                                    f"_A={self.aggregation_level}.csv")
-            dataset.to_csv(filename, index=True)
-    
-    def exist(self, pair, block_size=None, overlapping="F"):
-        exist = False
+            filename = os.path.join(
+                PREPROCCESSED_DATA_FOLDER,
+                f"{pair.upper()}_processed"
+                + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
+                + f"_S={len(self.symbols.keys())}"
+                + f"_A={self.aggregation_level}.parquet"  
+            )
+            dataset.to_parquet(filename, index=True) 
 
+    
+    def exist(self, pair, block_size=None):
+        exist = False
         if block_size is None:
             filename = os.path.join(
                 PREPROCCESSED_DATA_FOLDER,
-                f"{pair.upper()}_processed" +
-                (f"_{self.when}" if self.when is not None else "_REAL_TIME") +
-                f"_S={len(self.symbols.keys())}" +
-                f"_A={self.aggregation_level}.csv"
+                f"{pair.upper()}_processed"
+                + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
+                + f"_S={len(self.symbols.keys())}"
+                + f"_A={self.aggregation_level}.parquet"  
             )
             if os.path.exists(filename):
-                self.datasets[pair] = pd.read_csv(filename, index_col="timestamp", parse_dates=["timestamp"])
+                self.datasets[pair] = pd.read_parquet(filename) 
                 exist = True
         else:
             filename = (
                 f"{BLOCKS_FOLDER}/{pair.upper()}"
                 + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
                 + f"_A={self.aggregation_level}"
-                + f"_size={block_size}"
-                + f"_O={overlapping}.csv"
+                + f"_size={block_size}.csv"
             )
-
             if os.path.exists(filename):
                 exist = True
         return exist
 
-    def block_constructor(self, pairs=None, block_size=None, overlapping=False):
+    def block_constructor(self, pairs=None, block_size=None, overlapping=False, save=True):
+        """
+        Crée les blocs pour chaque pair.
+        Sauvegarde maintenant les blocs au format parquet (plus rapide que CSV).
+        """
         if pairs is None:
             pairs = self.assets_pairs
         self.blocks = {}
         status = "F" if not overlapping else "T"
+        
         for pair in pairs:
             filename = (
                 f"{BLOCKS_FOLDER}/{pair.upper()}"
                 + (f"_{self.when}" if self.when is not None else "_REAL_TIME")
                 + f"_A={self.aggregation_level}"
-                + f"_size={block_size}"
-                + f"_O={status}.csv"
+                + f"_O={status}"
+                + f"_size={block_size}.parquet"
             )
-            if self.exist(pair, block_size, overlapping=status):
-                self.blocks[pair] = pd.read_csv(filename, header=None)
+
+            # Charger si déjà existant
+            if os.path.exists(filename):
+                self.blocks[pair] = pd.read_parquet(filename)
                 continue
-            n = len(self.datasets[pair])
+
+            dataset = self.datasets[pair]
+            n = len(dataset)
             s = len(self.symbols.keys())
-            symbols = self.datasets[pair]['symbol'].values
+            symbols = dataset['symbol'].values.astype(np.int8)
 
-            block_size = math.floor(0.5*math.log(n,s)) if block_size is None else block_size
+            block_size_local = math.floor(0.5 * math.log(n, s)) if block_size is None else block_size
 
+            if len(symbols) < block_size_local:
+                print(f"[WARNING] Not enough data to construct blocks for {pair}. Skipping.")
+                continue
+
+            # Construction rapide des blocs
             if overlapping:
-                self.blocks[pair] = overlapping_blocks(symbols, block_size)
+                shape = (symbols.shape[0] - block_size_local + 1, block_size_local)
+                strides = (symbols.strides[0], symbols.strides[0])
+                blocks = np.lib.stride_tricks.as_strided(symbols, shape=shape, strides=strides)
             else:
-                self.blocks[pair] = non_overlapping_blocks(symbols, block_size)
-            
-            self.blocks[pair] = pd.DataFrame(self.blocks[pair])
-            self.blocks[pair].to_csv(filename, index=False, header=False)
+                n_blocks = symbols.shape[0] // block_size_local
+                trimmed_symbols = symbols[:n_blocks * block_size_local]
+                blocks = trimmed_symbols.reshape(-1, block_size_local)
 
+            blocks_df = pd.DataFrame(blocks)
+            self.blocks[pair] = blocks_df
+
+            if save:
+                blocks_df.to_parquet(filename, index=False)  # <-- Parquet !
+        
         return self.blocks
+
     
     def matching_aggregation_for(self,asset_other,blocks):
         

@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import itertools
 from collections import Counter
 import sys
@@ -6,6 +7,14 @@ import math
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from scipy.stats import chi2
+from numba import njit
+
+@njit
+def count_block_codes(codes, n_unique):
+    counts = np.zeros(n_unique, dtype=np.int64)
+    for i in range(codes.shape[0]):
+        counts[codes[i]] += 1
+    return counts
 
 class RandomnessAnalysis:
     def __init__(self, blocks_df, s):
@@ -14,29 +23,32 @@ class RandomnessAnalysis:
         self.n_blocks = len(blocks_df)
         self.k = self.blocks_df.shape[1] 
 
+
     def compute_blocks_frequencies(self):
-        symbols = list(range(self.s))
-        all_combinations = list(itertools.product(symbols, repeat=self.k)) 
+        """
+        Version optimisée avec Numba.
+        """
+        # Conversion en numpy array
+        blocks = self.blocks_df.values.astype(np.int32)
 
-        observed_blocks = [tuple(row) for row in self.blocks_df.values]
+        # Encodage des blocs en nombres uniques
+        powers = (self.s ** np.arange(self.k - 1, -1, -1)).astype(np.int32)
+        codes = np.dot(blocks, powers)
 
-        block_counts = Counter(observed_blocks)
+        # Comptage avec Numba
+        max_code = self.s ** self.k
+        counts = count_block_codes(codes, max_code)
 
-        relative_frequencies = {
-            combination: block_counts[combination] / self.n_blocks if self.n_blocks > 0 else 0
-            for combination in all_combinations
-        }
-
-        absolute_frequencies = {
-            combination: block_counts[combination] if combination in block_counts else 0
-            for combination in all_combinations
-        }
+        # Préparation du DataFrame (comme avant)
+        all_combinations = np.arange(max_code)
+        relative_freq = counts / self.n_blocks if self.n_blocks > 0 else np.zeros_like(counts)
+        absolute_freq = counts
 
         self.frequencies = pd.DataFrame(
             {
-                "block": list(relative_frequencies.keys()),
-                "absolute frequency": list(absolute_frequencies.values()),
-                "relative frequency": list(relative_frequencies.values())
+                "block": all_combinations,
+                "absolute frequency": absolute_freq,
+                "relative frequency": relative_freq
             }
         )
 
@@ -135,8 +147,7 @@ class RandomnessAnalysis:
 if __name__ == "__main__":
     df = pd.read_csv("data/blocks/BTCUSDT_blocks_3.csv", header=None)
     nb_symbols = 2
-    block_size = 3
-    test = RandomnessAnalysis(df, s=nb_symbols, k=block_size)
+    test = RandomnessAnalysis(df, s=nb_symbols)
 
     test_divergence = test.KL_divergence_test()
     print(test_divergence)
