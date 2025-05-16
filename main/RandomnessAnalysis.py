@@ -89,27 +89,30 @@ class RandomnessAnalysis:
         result = result.T
         result.columns = ["Entropy Bias test"]
         return result
-    
-    def KL_divergence(self):
-        f_ij = Counter()
-        f_i_dot = Counter()
-        f_dot_j = Counter()
-
-        for i in range(self.n_blocks):
-            block_i = tuple(self.blocks_df.iloc[i,:-1].values.flatten())
-            symbol_j = self.blocks_df.iloc[i, -1]
-            f_ij[(block_i, symbol_j)] += 1
-            f_i_dot[block_i] += 1
-            f_dot_j[symbol_j] += 1
         
-        D = 0.0
-        for (block_i, symbol_j), count_ij in f_ij.items():
-            count_i = f_i_dot[block_i]
-            count_j = f_dot_j[symbol_j]
-            if count_ij > 0 and count_i > 0 and count_j > 0:
-                D += 2 * count_ij * math.log((self.n_blocks * count_ij) / (count_i * count_j))
+    def KL_divergence(self):
+        df = self.blocks_df
 
+        block_cols = df.columns[:-1]
+        target_col = df.columns[-1]
+
+        n_blocks = len(df)
+        
+        joint_counts = df.groupby(list(block_cols) + [target_col]).size().reset_index(name='count_ij')
+        f_i_dot = df.groupby(list(block_cols)).size().reset_index(name='count_i')
+        f_dot_j = df.groupby(target_col).size().reset_index(name='count_j')
+
+        merged = joint_counts.merge(f_i_dot, on=list(block_cols))
+        merged = merged.merge(f_dot_j, on=target_col)
+
+        # D += 2 * count_ij * log((n_blocks * count_ij) / (count_i * count_j))
+        merged['term'] = 2 * merged['count_ij'] * np.log(
+            (n_blocks * merged['count_ij']) / (merged['count_i'] * merged['count_j'])
+        )
+
+        D = merged['term'].sum()
         return D
+
     
     def KL_divergence_test(self,m=1):
 

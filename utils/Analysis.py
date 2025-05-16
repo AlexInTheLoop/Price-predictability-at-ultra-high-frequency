@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import pandas as pd
-from data.DataCollectors import HistoricalDataCollector
+from data.DataCollectors import HistoricalDataCollectorParquet, HistoricalDataCollector
 from data.DataManager import DataManager
 from utils.BlockConstructors import non_overlapping_blocks, overlapping_blocks
 from main.RandomnessAnalysis import RandomnessAnalysis
@@ -126,7 +126,7 @@ def intervals_analysis(pairs,
         for level in range(1, max_aggregation_level+1):
             message = f"{year}-{m}" if day is None else f"{year}-{m}-{d}"
             print(f"[SYSTEM] Processing " + message + f" with aggregation level {level}...")
-            collector = HistoricalDataCollector(pairs, year, m, d)
+            collector = HistoricalDataCollectorParquet(pairs, year, m, d)
             collector.collect()
             data_manager = DataManager(pairs, 
                                     symbols,
