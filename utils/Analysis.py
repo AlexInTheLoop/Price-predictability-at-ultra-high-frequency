@@ -21,13 +21,15 @@ def get_assets_properties(pairs, s, year, month, day=None, aggregation_level=1):
         result = {}
         
         for pair in pairs:
-            filename = os.path.join(PREPROCCESSED_DATA_FOLDER, f"{pair.upper()}_processed" + 
-                                    (f"_{when}" if when is not None else "_REAL_TIME") +
-                                    f"_S={s}" + 
-                                    f"_A={aggregation_level}.csv")
+            filename = os.path.join(PREPROCCESSED_DATA_FOLDER,
+                            f"{pair.upper()}_processed"
+                            + (f"_{when}" if when is not None else "_REAL_TIME")
+                            + f"_S={s}"
+                            + f"_A={aggregation_level}.parquet"
+                        )
             if not os.path.exists(filename):
               raise FileNotFoundError(f"File {filename} does not exist. Launch the data collector/manager first.")
-            df = pd.read_csv(filename, index_col="timestamp", parse_dates=["timestamp"])
+            df = pd.read_parquet(filename)
 
             mean_price = np.exp(df["price"]).mean()
             std_price = np.exp(df["price"]).std()

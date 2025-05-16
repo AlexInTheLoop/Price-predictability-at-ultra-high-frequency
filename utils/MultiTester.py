@@ -47,8 +47,9 @@ class MultiTester:
 
             if test == 'Entropy Bias':
                 test_result = analysis.entropy_bias_test()
-            elif test == 'NP Statistic':
-                test_result = analysis.KL_divergence_test()
+            elif test == 'NP Statistic' and i < 2:
+                print(f"[WARNING] KL Divergence test is not defined for block size {i}. Skipping.")
+                continue
             else:
                 raise ValueError("Invalid test type.")
 
@@ -201,17 +202,19 @@ class CrossMultiTester:
                                  year, month, day,
                                  aggregation_level=alpha_context)
 
-            alpha_tgt = dm_ctx.matching_aggregation_for(self.asset_target)
+            n_blocks_ctx = len(dm_ctx.datasets[self.asset_context]['symbol'])
+            alpha_tgt = dm_ctx.matching_aggregation_for(
+                self.asset_target, blocks=n_blocks_ctx,
+                year=year, month=month, day=day
+            )
+
             dm_tgt = DataManager([self.asset_target], self.symbols,
                                  year, month, day,
                                  aggregation_level=alpha_tgt)
 
-            blocks_ctx = dm_ctx.block_constructor(block_size=1, overlapping=False)[self.asset_context]
-            blocks_tgt = dm_tgt.block_constructor(block_size=1, overlapping=False)[self.asset_target]
-
             cra = CrossRandomnessAnalysis(
-                blocks_context=blocks_ctx,
-                blocks_target=blocks_tgt,
+                symbols_context=dm_ctx.datasets[self.asset_context]['symbol'],
+                symbols_target=dm_tgt.datasets[self.asset_target]['symbol'],
                 k=k, s=self.s,
                 asset_context=self.asset_context,
                 alpha_context=alpha_context,
@@ -229,7 +232,7 @@ class CrossMultiTester:
             results['Quantile 99'].append(res.iloc[3, 0])
             results['Mean'].append(res.iloc[5, 0])
 
-            del dm_ctx, dm_tgt, blocks_ctx, blocks_tgt, cra, res
+            del dm_ctx, dm_tgt, cra, res
             gc.collect()
 
         return pd.DataFrame(results).set_index('Block size')
@@ -257,17 +260,19 @@ class CrossMultiTester:
                                  year, month, day,
                                  aggregation_level=alpha_ctx)
 
-            alpha_tgt = dm_ctx.matching_aggregation_for(self.asset_target)
+            n_blocks_ctx = len(dm_ctx.datasets[self.asset_context]['symbol'])
+            alpha_tgt = dm_ctx.matching_aggregation_for(
+                self.asset_target, blocks=n_blocks_ctx,
+                year=year, month=month, day=day
+            )
+
             dm_tgt = DataManager([self.asset_target], self.symbols,
                                  year, month, day,
                                  aggregation_level=alpha_tgt)
 
-            blocks_ctx = dm_ctx.block_constructor(block_size=1, overlapping=False)[self.asset_context]
-            blocks_tgt = dm_tgt.block_constructor(block_size=1, overlapping=False)[self.asset_target]
-
             cra = CrossRandomnessAnalysis(
-                blocks_context=blocks_ctx,
-                blocks_target=blocks_tgt,
+                symbols_context=dm_ctx.datasets[self.asset_context]['symbol'],
+                symbols_target=dm_tgt.datasets[self.asset_target]['symbol'],
                 k=k, s=self.s,
                 asset_context=self.asset_context,
                 alpha_context=alpha_ctx,
@@ -285,43 +290,45 @@ class CrossMultiTester:
             results['Quantile 99'].append(res.iloc[3, 0])
             results['Mean'].append(res.iloc[5, 0])
 
-            del dm_ctx, dm_tgt, blocks_ctx, blocks_tgt, cra, res
+            del dm_ctx, dm_tgt, cra, res
             gc.collect()
 
         return pd.DataFrame(results).set_index('Aggregation level')
 
     def test_grid(self,
-                test='Entropy Bias',
-                list_aggregations=[1, 2, 5, 10, 20],
-                list_block_sizes=[1, 2, 3, 4, 5],
-                year=2024,
-                month=11,
-                day=None):
+                  test='Entropy Bias',
+                  list_aggregations=[1, 2, 5, 10, 20],
+                  list_block_sizes=[1, 2, 3, 4, 5],
+                  year=2024,
+                  month=11,
+                  day=None):
 
         result_3D = np.zeros((max(list_aggregations),
-                            max(list_block_sizes),
-                            2))
+                              max(list_block_sizes),
+                              2))
 
         total = len(list_aggregations) * len(list_block_sizes)
         pbar = tqdm(total=total, desc=f"[{self.asset_context}→{self.asset_target}] Cross test grid")
 
         for alpha_ctx in list_aggregations:
             dm_ctx = DataManager([self.asset_context], self.symbols,
-                                year, month, day,
-                                aggregation_level=alpha_ctx)
+                                 year, month, day,
+                                 aggregation_level=alpha_ctx)
 
-            alpha_tgt = dm_ctx.matching_aggregation_for(self.asset_target)
+            n_blocks_ctx = len(dm_ctx.datasets[self.asset_context]['symbol'])
+            alpha_tgt = dm_ctx.matching_aggregation_for(
+                self.asset_target, blocks=n_blocks_ctx,
+                year=year, month=month, day=day
+            )
+
             dm_tgt = DataManager([self.asset_target], self.symbols,
-                                year, month, day,
-                                aggregation_level=alpha_tgt)
-
-            blocks_ctx = dm_ctx.block_constructor(block_size=1, overlapping=False)[self.asset_context]
-            blocks_tgt = dm_tgt.block_constructor(block_size=1, overlapping=False)[self.asset_target]
+                                 year, month, day,
+                                 aggregation_level=alpha_tgt)
 
             for k in list_block_sizes:
                 cra = CrossRandomnessAnalysis(
-                    blocks_context=blocks_ctx,
-                    blocks_target=blocks_tgt,
+                    symbols_context=dm_ctx.datasets[self.asset_context]['symbol'],
+                    symbols_target=dm_tgt.datasets[self.asset_target]['symbol'],
                     k=k, s=self.s,
                     asset_context=self.asset_context,
                     alpha_context=alpha_ctx,
@@ -341,7 +348,7 @@ class CrossMultiTester:
                 gc.collect()
                 pbar.update(1)
 
-            del dm_ctx, dm_tgt, blocks_ctx, blocks_tgt
+            del dm_ctx, dm_tgt
             gc.collect()
 
         pbar.close()
@@ -349,9 +356,6 @@ class CrossMultiTester:
 
     @staticmethod
     def to_dataframe_from_grid(result_3D, aggregation_levels, block_sizes, test_name="Test"):
-        """
-        Convertit une grille 3D (aggregation × block × 2) en DataFrame exploitable
-        """
         records = []
         for i, alpha in enumerate(aggregation_levels):
             for j, k in enumerate(block_sizes):
