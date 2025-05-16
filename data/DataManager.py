@@ -5,6 +5,7 @@ import math
 import sys
 import os
 import plotly.graph_objects as go
+import plotly.express as px
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.BlockConstructors import non_overlapping_blocks, overlapping_blocks
 from data.DataCollectors import RAW_DATA_FOLDER
@@ -66,6 +67,10 @@ class DataManager:
             if os.path.exists(parquet_file):
                 print(f"[DataManager] Loading parquet file: {parquet_file}")
                 df = pd.read_parquet(parquet_file)
+                    # Si colonnes sont anonymes (cas rare), appliquer fix
+                if set(df.columns) == set(range(df.shape[1])):
+                    df.columns = ["trade_id", "price", "volume", "quote_qty",
+                                "timestamp", "is_buyer_maker", "is_best_match"]
 
             elif os.path.exists(csv_file):
                 print(f"[DataManager] Loading csv file: {csv_file}")
@@ -247,19 +252,19 @@ class DataManager:
         return self.blocks
 
     
-    def matching_aggregation_for(self,asset_other,blocks):
-        
+    def matching_aggregation_for(self, asset_other, blocks, year, month, day=None):
         self_asset = self.assets_pairs[0]
         n_self_blocks = len(self.datasets[self_asset]['symbol'])
         M = blocks or n_self_blocks
 
         dm0 = DataManager([asset_other],
-                          self.symbols,
-                          self.year, self.month, self.day,
-                          aggregation_level=1)
+                        self.symbols,
+                        year, month, day,
+                        aggregation_level=1)
+
         n_other = len(dm0.datasets[asset_other]['symbol'])
 
-        # 3) déterminer alpha_other
+        # Trouve l’agrégation qui réduit n_other à environ M
         return max(1, n_other // M)
     
     def compute_tx_frequency_metrics(
@@ -328,7 +333,7 @@ class DataManager:
         fig = go.Figure()
         for pair in pairs:
             df = DataManager.summarize_transaction_characteristics(
-                pair=pair,
+                pairs=pair,
                 symbols=symbols,
                 year=year,
                 month=month,
@@ -352,43 +357,51 @@ class DataManager:
             width=800
         )
         return fig
-
-    def plot_transaction_counts(
+    
+    @staticmethod
+    def plot_transaction_counts_express(
         pairs: list[str],
         symbols: dict,
         year: int,
         month: int,
-        day: int,
-        aggregation_levels: list[int]
+        day: int = None,
+        aggregation_levels: list[int] = []
     ) -> go.Figure:
-        
-        fig = go.Figure()
+
+        records = []
+
         for pair in pairs:
-            # get the summary table for this pair
-            df = DataManager.summarize_transaction_characteristics(
-                pair=pair,
-                symbols=symbols,
-                year=year,
-                month=month,
-                day=day,
-                aggregation_levels=aggregation_levels
-            )
-            # plot total_transactions vs aggregation_level
-            fig.add_trace(go.Scatter(
-                x=df.index,
-                y=df['total_transactions'],
-                mode='lines+markers',
-                name=pair
-            ))
+            for lvl in aggregation_levels:
+                dm = DataManager(
+                    asset_pairs=[pair],
+                    symbols=symbols,
+                    year=year, month=month, day=day,
+                    aggregation_level=lvl
+                )
+                # important : on veut forcer un rechargement propre
+                dm.preprocess_data()
+                m = dm.compute_tx_frequency_metrics(pair)
+                m["pair"] = pair
+                m["aggregation_level"] = lvl
+                records.append(m)
+
+        df = pd.DataFrame(records)
+
+        fig = px.line(
+            df,
+            x="aggregation_level",
+            y="total_transactions",
+            color="pair",
+            markers=True,
+            title="Total Transactions vs Aggregation Level"
+        )
 
         fig.update_layout(
-            title="Total Transactions vs Aggregation Level",
             xaxis_title="Aggregation Level",
             yaxis_title="Total Transactions",
-            template="plotly_white",
-            height=500,
-            width=800
+            template="plotly_white"
         )
+
         return fig
 
 if __name__ == "__main__":

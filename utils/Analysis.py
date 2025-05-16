@@ -20,6 +20,7 @@ def get_assets_properties(pairs, s, year, month, day=None, aggregation_level=1):
 
         result = {}
         
+<<<<<<< HEAD
         for pair in pairs:          
             filename = os.path.join(PREPROCCESSED_DATA_FOLDER,
                 f"{pair.upper()}_processed"
@@ -27,6 +28,15 @@ def get_assets_properties(pairs, s, year, month, day=None, aggregation_level=1):
                 + f"_S={s}"
                 + f"_A={aggregation_level}.parquet"  
             )
+=======
+        for pair in pairs:
+            filename = os.path.join(PREPROCCESSED_DATA_FOLDER,
+                            f"{pair.upper()}_processed"
+                            + (f"_{when}" if when is not None else "_REAL_TIME")
+                            + f"_S={s}"
+                            + f"_A={aggregation_level}.parquet"
+                        )
+>>>>>>> 0464f942ae2b60b24dc15811bfd5375a581f51bc
             if not os.path.exists(filename):
               raise FileNotFoundError(f"File {filename} does not exist. Launch the data collector/manager first.")
             df = pd.read_parquet(filename)
