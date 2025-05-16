@@ -379,9 +379,7 @@ class DataManager:
                     aggregation_level=lvl
                 )
                 # important : on veut forcer un rechargement propre
-                dm.checks = [False]  # assure qu’on ne charge pas un cache trop vieux
                 dm.preprocess_data()
-
                 m = dm.compute_tx_frequency_metrics(pair)
                 m["pair"] = pair
                 m["aggregation_level"] = lvl

@@ -16,6 +16,19 @@ def count_block_codes(codes, n_unique):
         counts[codes[i]] += 1
     return counts
 
+def decode_block_code(code: int, k: int, s: int) -> list[int]:
+    """
+    Décode un entier en bloc de taille k dans l'alphabet {0, ..., s-1}.
+    """
+    block = []
+    for i in range(k - 1, -1, -1):
+        base = s ** i
+        digit = code // base
+        block.append(digit)
+        code %= base
+    return block
+
+
 class RandomnessAnalysis:
     def __init__(self, blocks_df, s):
         self.blocks_df = blocks_df
@@ -26,33 +39,37 @@ class RandomnessAnalysis:
 
     def compute_blocks_frequencies(self):
         """
-        Version optimisée avec Numba.
+        Version optimisée avec Numba + décodage des blocs.
         """
         # Conversion en numpy array
         blocks = self.blocks_df.values.astype(np.int32)
 
-        # Encodage des blocs en nombres uniques
+        # Encodage des blocs en entiers uniques en base s
         powers = (self.s ** np.arange(self.k - 1, -1, -1)).astype(np.int32)
         codes = np.dot(blocks, powers)
 
-        # Comptage avec Numba
+        # Comptage
         max_code = self.s ** self.k
         counts = count_block_codes(codes, max_code)
 
-        # Préparation du DataFrame (comme avant)
+        # Construction des tableaux
         all_combinations = np.arange(max_code)
         relative_freq = counts / self.n_blocks if self.n_blocks > 0 else np.zeros_like(counts)
         absolute_freq = counts
 
-        self.frequencies = pd.DataFrame(
-            {
-                "block": all_combinations,
-                "absolute frequency": absolute_freq,
-                "relative frequency": relative_freq
-            }
-        )
+        # Décodage des blocs encodés
+        decoded_blocks = [decode_block_code(code, self.k, self.s) for code in all_combinations]
+
+        # DataFrame final
+        self.frequencies = pd.DataFrame({
+            "code": all_combinations,
+            "block": decoded_blocks,
+            "absolute frequency": absolute_freq,
+            "relative frequency": relative_freq
+        })
 
         return self.frequencies
+
 
     def shannon_entropy(self):
         if not hasattr(self, 'frequencies'):
