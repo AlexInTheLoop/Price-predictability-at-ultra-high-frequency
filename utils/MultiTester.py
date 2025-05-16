@@ -138,7 +138,7 @@ class MultiTester:
         pbar = tqdm(total=total, desc=f"[{asset}] Grid test 3D")
 
         for i in range(1, max_aggregation_level + 1, step_aggregation):
-            for j in range(1, max_block_size + 1, step_block):
+            for j in range(2, max_block_size + 1, step_block):
                 data_manager = DataManager([asset], self.symbols, aggregation_level=i,
                                         year=year, month=month, day=day)
                 blocks_df = data_manager.block_constructor(block_size=j, overlapping=self.overlapping)[asset]
@@ -164,7 +164,7 @@ class MultiTester:
                 pbar.update(1)
 
         pbar.close()
-        plot_3D(result_3D, test)
+        return plot_3D(result_3D, test)
 
 
 class CrossMultiTester:

@@ -77,7 +77,7 @@ def plot_3D(test_results,test='Entropy Bias'):
         width=900
     )
 
-    fig.show()
+    return fig
         
 def plot_predictability(aggregation_levels, predictability, x_label='Aggregation Level'):
     fig = go.Figure()
