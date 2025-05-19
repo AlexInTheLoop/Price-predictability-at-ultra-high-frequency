@@ -165,7 +165,7 @@ class MultiTester:
                 pbar.update(1)
 
         pbar.close()
-        plot_3D(result_3D, test)
+        return plot_3D(result_3D, test)
 
 
 class CrossMultiTester:
